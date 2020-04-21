@@ -23,6 +23,8 @@
 #define KEEPALIVE_TIME (65*60*1000)
 #define SERVER_LIMIT 4096
 #define SERVER_DUP_LIMIT 10
+#define MAXTRANS 5000                  // max amount of data to swallow in 1 go
+
 
 FILE *logfile = NULL;
 
@@ -40,14 +42,14 @@ void adduser(char *name, char *pubkey)
     u.name = name;
     u.pubkey = parsepubkey(pubkey);
 }
-COMMAND(adduser, "ss");
+//COMMAND(adduser, "ss");
 
 void clearusers()
 {
     ENUMERATE(users, userinfo, u, { delete[] u.name; freepubkey(u.pubkey); });
     users.clear();
 }
-COMMAND(clearusers, "");
+//COMMAND(clearusers, "");
 
 vector<ipmask> bans, servbans, gbans;
 
@@ -57,7 +59,7 @@ void clearbans()
     servbans.shrink(0);
     gbans.shrink(0);
 }
-COMMAND(clearbans, "");
+//COMMAND(clearbans, "");
 
 void addban(vector<ipmask> &bans, const char *name)
 {
@@ -65,9 +67,9 @@ void addban(vector<ipmask> &bans, const char *name)
     ban.parse(name);
     bans.add(ban); 
 }
-ICOMMAND(ban, "s", (char *name), addban(bans, name));
-ICOMMAND(servban, "s", (char *name), addban(servbans, name));
-ICOMMAND(gban, "s", (char *name), addban(gbans, name));
+//ICOMMAND(ban, "s", (char *name), addban(bans, name));
+//ICOMMAND(servban, "s", (char *name), addban(servbans, name));
+//ICOMMAND(gban, "s", (char *name), addban(gbans, name));
 
 bool checkban(vector<ipmask> &bans, enet_uint32 host)
 {
@@ -162,7 +164,7 @@ void fatal(const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
-void conoutfv(int type, const char *fmt, va_list args)
+void conoutfv(const char *fmt, va_list args)
 {
     vfprintf(logfile, fmt, args);
     fputc('\n', logfile);
@@ -172,15 +174,7 @@ void conoutf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    conoutfv(Console_Info, fmt, args);
-    va_end(args);
-}
-
-void conoutf(int type, const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    conoutfv(type, fmt, args);
+    conoutfv(fmt, args);
     va_end(args);
 }
 

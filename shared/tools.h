@@ -522,18 +522,6 @@ template<class T> struct isclass
     enum { yes = sizeof(test<T>(0)) == 1 ? 1 : 0, no = yes^1 };
 };
 
-static inline uint hthash(const char *key)
-{
-    uint h = 5381;
-    for(int i = 0, k; (k = key[i]); i++) h = ((h<<5)+h)^k;    // bernstein k=33 xor
-    return h;
-}
-
-static inline bool htcmp(const char *x, const char *y)
-{
-    return !strcmp(x, y);
-}
-
 struct stringslice
 {
     const char *str;
@@ -558,47 +546,21 @@ inline char *copystring(char *d, const stringslice &s, size_t len)
     d[slen] = 0;
     return d;
 }
-template<size_t N> inline char *copystring(char (&d)[N], const stringslice &s) { return copystring(d, s, N); }
 
-static inline uint memhash(const void *ptr, int len)
+static inline uint hthash(const char *key)
 {
-    const uchar *data = (const uchar *)ptr;
     uint h = 5381;
-    for(int i = 0; i < int(len); ++i)
-    {
-        h = ((h<<5)+h)^data[i]; 
-    }
+    for(int i = 0, k; (k = key[i]); i++) h = ((h<<5)+h)^k;    // bernstein k=33 xor
     return h;
 }
 
-static inline uint hthash(const stringslice &s) { return memhash(s.str, s.len); }
-
-static inline bool htcmp(const stringslice &x, const char *y)
-{
-    return x.len == (int)strlen(y) && !memcmp(x.str, y, x.len);
-}
 
 static inline uint hthash(int key)
 {
     return key;
 }
 
-static inline bool htcmp(int x, int y)
-{
-    return x==y;
-}
-
-#ifndef STANDALONE
-static inline uint hthash(GLuint key)
-{
-    return key;
-}
-
-static inline bool htcmp(GLuint x, GLuint y)
-{
-    return x==y;
-}
-#endif
+template<size_t N> inline char *copystring(char (&d)[N], const stringslice &s) { return copystring(d, s, N); }
 
 template <class T> struct vector
 {
@@ -1109,6 +1071,9 @@ template<class H, class E, class K, class T> struct hashbase
     static inline T &enumdata(void *i) { return H::getdata(((chain *)i)->elem); }
 };
 
+
+
+
 template<class T> static inline void htrecycle(const T &) {}
 
 template<class T> struct hashset : hashbase<hashset<T>, T, T, T>
@@ -1325,10 +1290,6 @@ struct stream
     template<class T> T get() { T n; return read(&n, sizeof(n)) == sizeof(n) ? n : 0; }
     template<class T> T getlil() { return LIL_ENDIAN_SWAP(get<T>()); }
     template<class T> T getbig() { return BIG_SWAP(get<T>()); }
-
-#ifndef STANDALONE
-    SDL_RWops *rwops();
-#endif
 };
 
 template<class T>
@@ -1400,12 +1361,6 @@ extern const char *sethomedir(const char *dir);
 extern const char *addpackagedir(const char *dir);
 extern const char *findfile(const char *filename, const char *mode);
 extern bool findzipfile(const char *filename);
-extern stream *openrawfile(const char *filename, const char *mode);
-extern stream *openzipfile(const char *filename, const char *mode);
-extern stream *openfile(const char *filename, const char *mode);
-extern stream *opentempfile(const char *filename, const char *mode);
-extern stream *opengzfile(const char *filename, const char *mode, stream *file = NULL, int level = Z_BEST_COMPRESSION);
-extern stream *openutf8file(const char *filename, const char *mode, stream *file = NULL);
 extern char *loadfile(const char *fn, size_t *size, bool utf8 = true);
 extern bool listdir(const char *dir, bool rel, const char *ext, vector<char *> &files);
 extern int listfiles(const char *dir, const char *ext, vector<char *> &files);
