@@ -8,7 +8,7 @@
 
 #include "cube.h"
 #include <signal.h>
-#include <enet/time.h>
+#include <enet/etime.h>
 
 #define INPUT_LIMIT 4096
 #define OUTPUT_LIMIT (64*1024)
@@ -708,7 +708,7 @@ int main(int argc, char **argv)
     atexit(enet_deinitialize);
 
     const char *dir = "", *ip = NULL;
-    int port = 41999;
+    int port = 42068;
     if(argc>=2) dir = argv[1];
     if(argc>=3) port = atoi(argv[2]);
     if(argc>=4) ip = argv[3];
@@ -728,7 +728,7 @@ int main(int argc, char **argv)
         if(reloadcfg)
         {
             conoutf("reloading %s", cfgname);
-            execfile(cfgname);
+            //execfile(cfgname);
             bangameservers();
             banclients();
             gengbanlist();

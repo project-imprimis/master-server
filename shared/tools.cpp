@@ -154,26 +154,6 @@ void getstring(char *text, ucharbuf &p, size_t len)
     while(*t++);
 }
 
-void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, size_t len)
-{
-    for(int c = uchar(*src); c; c = uchar(*++src))
-    {
-        if(c == '\f')
-        {
-            if(!*++src) break;
-            continue;
-        }
-        if(!iscubeprint(c))
-        {
-            if(!iscubespace(c) || !whitespace) continue;
-            if(forcespace) c = ' ';
-        }
-        *dst++ = c;
-        if(!--len) break;
-    }
-    *dst = '\0';
-}
-
 void ipmask::parse(const char *name)
 {   
     union { uchar b[sizeof(enet_uint32)]; enet_uint32 i; } ipconv, maskconv;

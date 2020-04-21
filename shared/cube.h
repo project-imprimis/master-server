@@ -6,22 +6,21 @@
 #ifdef WIN32
 #define _USE_MATH_DEFINES
 #endif
-#include <math.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <ctime>
+#include <cmath>
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <ctype.h>
-#include <stdarg.h>
-#include <limits.h>
-#include <float.h>
-#include <assert.h>
-#include <time.h>
-
+#include <cstdarg>
+#include <climits>
+#include <cfloat>
+#include <cassert>
+#include <iostream>
 #include <enet/enet.h>
 
 #include "tools.h"
 #include "crypto.h"
-#include "lib.h"
 
 #endif
 

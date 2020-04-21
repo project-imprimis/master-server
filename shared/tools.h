@@ -33,13 +33,6 @@ typedef unsigned long long int ullong;
 #define UNUSED
 #endif
 
-void *operator new(size_t, bool);
-void *operator new[](size_t, bool);
-inline void *operator new(size_t, void *p) { return p; }
-inline void *operator new[](size_t, void *p) { return p; }
-inline void operator delete(void *, void *) {}
-inline void operator delete[](void *, void *) {}
-
 #ifdef swap
 #undef swap
 #endif
@@ -218,8 +211,6 @@ template<size_t N> inline void concformatstring(char (&d)[N], const char *fmt, .
     vformatstring(d + len, fmt, v, int(N) - len);
     va_end(v);
 }
-
-extern char *tempformatstring(const char *fmt, ...) PRINTFARGS(1, 2);
 
 #define DEF_FORMAT_STRING(d,...) string d; formatstring(d, __VA_ARGS__)
 #define DEFV_FORMAT_STRING(d,last,fmt) string d; { va_list ap; va_start(ap, last); vformatstring(d, fmt, ap); va_end(ap); }
@@ -430,90 +421,6 @@ struct sortnameless
     template<class T> bool operator()(T *x, T *y) const { return sortless()(x->name, y->name); }
     template<class T> bool operator()(const T *x, const T *y) const { return sortless()(x->name, y->name); }
 };
-
-template<class T, class F>
-static inline void insertionsort(T *start, T *end, F fun)
-{
-    for(T *i = start+1; i < end; i++)
-    {
-        if(fun(*i, i[-1]))
-        {
-            T tmp = *i;
-            *i = i[-1];
-            T *j = i-1;
-            for(; j > start && fun(tmp, j[-1]); --j)
-                *j = j[-1];
-            *j = tmp;
-        }
-    }
-
-}
-
-template<class T, class F>
-static inline void insertionsort(T *buf, int n, F fun)
-{
-    insertionsort(buf, buf+n, fun);
-}
-
-template<class T>
-static inline void insertionsort(T *buf, int n)
-{
-    insertionsort(buf, buf+n, sortless());
-}
-
-template<class T, class F>
-static inline void quicksort(T *start, T *end, F fun)
-{
-    while(end-start > 10)
-    {
-        T *mid = &start[(end-start)/2], *i = start+1, *j = end-2, pivot;
-        if(fun(*start, *mid)) /* start < mid */
-        {
-            if(fun(end[-1], *start)) { pivot = *start; *start = end[-1]; end[-1] = *mid; } /* end < start < mid */
-            else if(fun(end[-1], *mid)) { pivot = end[-1]; end[-1] = *mid; } /* start <= end < mid */
-            else { pivot = *mid; } /* start < mid <= end */
-        }
-        else if(fun(*start, end[-1])) { pivot = *start; *start = *mid; } /*mid <= start < end */
-        else if(fun(*mid, end[-1])) { pivot = end[-1]; end[-1] = *start; *start = *mid; } /* mid < end <= start */
-        else { pivot = *mid; swap(*start, end[-1]); }  /* end <= mid <= start */
-        *mid = end[-2];
-        do
-        {
-            while(fun(*i, pivot)) if(++i >= j) goto partitioned;
-            while(fun(pivot, *--j)) if(i >= j) goto partitioned;
-            swap(*i, *j);
-        }
-        while(++i < j);
-    partitioned:
-        end[-2] = *i;
-        *i = pivot;
-
-        if(i-start < end-(i+1))
-        {
-            quicksort(start, i, fun);
-            start = i+1;
-        }
-        else
-        {
-            quicksort(i+1, end, fun);
-            end = i;
-        }
-    }
-
-    insertionsort(start, end, fun);
-}
-
-template<class T, class F>
-static inline void quicksort(T *buf, int n, F fun)
-{
-    quicksort(buf, buf+n, fun);
-}
-
-template<class T>
-static inline void quicksort(T *buf, int n)
-{
-    quicksort(buf, buf+n, sortless());
-}
 
 template<class T> struct isclass
 {
@@ -873,7 +780,7 @@ template <class T> struct vector
     {
         for(int i = 0; i < int(ulen); ++i)
         {
-            if(htcmp(key, buf[i])) 
+            if(key == buf[i]) 
             {
                 return i;
             }
@@ -882,10 +789,10 @@ template <class T> struct vector
     }
 
     #define UNIQUE(overwrite, cleanup) \
-        for(int i = 1; i < ulen; i++) if(htcmp(buf[i-1], buf[i])) \
+        for(int i = 1; i < ulen; i++) if(buf[i-1] == buf[i]) \
         { \
             int n = i; \
-            while(++i < ulen) if(!htcmp(buf[n-1], buf[i])) { overwrite; n++; } \
+            while(++i < ulen) if(buf[n-1] != buf[i]) { overwrite; n++; } \
             cleanup; \
             break; \
         }
@@ -974,7 +881,7 @@ template<class H, class E, class K, class T> struct hashbase
         uint h = hthash(key)&(this->size-1); \
         for(chain *c = this->chains[h]; c; c = c->next) \
         { \
-            if(htcmp(key, H::getkey(c->elem))) return success H::getdata(c->elem); \
+            if(key == H::getkey(c->elem)) return success H::getdata(c->elem); \
         } \
         return (fail);
 
@@ -1070,9 +977,6 @@ template<class H, class E, class K, class T> struct hashbase
     static inline K &enumkey(void *i) { return H::getkey(((chain *)i)->elem); }
     static inline T &enumdata(void *i) { return H::getdata(((chain *)i)->elem); }
 };
-
-
-
 
 template<class T> static inline void htrecycle(const T &) {}
 
@@ -1306,84 +1210,15 @@ struct streambuf
     size_t length() { return s->size(); }
 };
 
-enum
-{
-    CT_PRINT   = 1<<0,
-    CT_SPACE   = 1<<1,
-    CT_DIGIT   = 1<<2,
-    CT_ALPHA   = 1<<3,
-    CT_LOWER   = 1<<4,
-    CT_UPPER   = 1<<5,
-    CT_UNICODE = 1<<6
-};
-extern const uchar cubectype[256];
-static inline int iscubeprint(uchar c) { return cubectype[c]&CT_PRINT; }
-static inline int iscubespace(uchar c) { return cubectype[c]&CT_SPACE; }
-static inline int iscubealpha(uchar c) { return cubectype[c]&CT_ALPHA; }
-static inline int iscubealnum(uchar c) { return cubectype[c]&(CT_ALPHA|CT_DIGIT); }
-static inline int iscubelower(uchar c) { return cubectype[c]&CT_LOWER; }
-static inline int iscubeupper(uchar c) { return cubectype[c]&CT_UPPER; }
-static inline int iscubepunct(uchar c) { return cubectype[c] == CT_PRINT; }
-static inline int cube2uni(uchar c)
-{
-    extern const int cube2unichars[256];
-    return cube2unichars[c];
-}
-static inline uchar uni2cube(int c)
-{
-    extern const int uni2cubeoffsets[8];
-    extern const uchar uni2cubechars[];
-    return uint(c) <= 0x7FF ? uni2cubechars[uni2cubeoffsets[c>>8] + (c&0xFF)] : 0;
-}
-static inline uchar cubelower(uchar c)
-{
-    extern const uchar cubelowerchars[256];
-    return cubelowerchars[c];
-}
-static inline uchar cubeupper(uchar c)
-{
-    extern const uchar cubeupperchars[256];
-    return cubeupperchars[c];
-}
 extern size_t decodeutf8(uchar *dst, size_t dstlen, const uchar *src, size_t srclen, size_t *carry = NULL);
 extern size_t encodeutf8(uchar *dstbuf, size_t dstlen, const uchar *srcbuf, size_t srclen, size_t *carry = NULL);
 
 extern string homedir;
 
-extern char *makerelpath(const char *dir, const char *file, const char *prefix = NULL, const char *cmd = NULL);
 extern char *path(char *s);
-extern char *path(const char *s, bool copy);
-extern const char *parentdir(const char *directory);
-extern bool fileexists(const char *path, const char *mode);
-extern bool createdir(const char *path);
-extern size_t fixpackagedir(char *dir);
-extern const char *sethomedir(const char *dir);
-extern const char *addpackagedir(const char *dir);
-extern const char *findfile(const char *filename, const char *mode);
-extern bool findzipfile(const char *filename);
-extern char *loadfile(const char *fn, size_t *size, bool utf8 = true);
-extern bool listdir(const char *dir, bool rel, const char *ext, vector<char *> &files);
-extern int listfiles(const char *dir, const char *ext, vector<char *> &files);
-extern int listzipfiles(const char *dir, const char *ext, vector<char *> &files);
 
-extern void putint(ucharbuf &p, int n);
-extern void putint(packetbuf &p, int n);
-extern void putint(vector<uchar> &p, int n);
-extern int getint(ucharbuf &p);
-extern void putuint(ucharbuf &p, int n);
-extern void putuint(packetbuf &p, int n);
-extern void putuint(vector<uchar> &p, int n);
-extern int getuint(ucharbuf &p);
-extern void putfloat(ucharbuf &p, float f);
-extern void putfloat(packetbuf &p, float f);
-extern void putfloat(vector<uchar> &p, float f);
-extern float getfloat(ucharbuf &p);
-extern void sendstring(const char *t, ucharbuf &p);
-extern void sendstring(const char *t, packetbuf &p);
-extern void sendstring(const char *t, vector<uchar> &p);
-extern void getstring(char *t, ucharbuf &p, size_t len);
+
 template<size_t N> static inline void getstring(char (&t)[N], ucharbuf &p) { getstring(t, p, N); }
-extern void filtertext(char *dst, const char *src, bool whitespace, bool forcespace, size_t len);
 template<size_t N> static inline void filtertext(char (&dst)[N], const char *src, bool whitespace = true, bool forcespace = false) { filtertext(dst, src, whitespace, forcespace, N-1); }
 
 struct ipmask
