@@ -74,61 +74,9 @@ static inline T clamp(T a, U b, U c)
 {
     return max(T(b), min(a, T(c)));
 }
-
-#ifdef __GNUC__
-#define BITSCAN(mask) (__builtin_ffs(mask)-1)
-#else
-#ifdef WIN32
-#pragma intrinsic(_BitScanForward)
-static inline int BITSCAN(uint mask)
-{
-    ulong i;
-    return _BitScanForward(&i, mask) ? i : -1;
-}
-#else
-static inline int BITSCAN(uint mask)
-{   
-    if(!mask) return -1;
-    int i = 1;
-    if(!(mask&0xFFFF)) { i += 16; mask >>= 16; }
-    if(!(mask&0xFF)) { i += 8; mask >>= 8; }
-    if(!(mask&0xF)) { i += 4; mask >>= 4; }
-    if(!(mask&3)) { i += 2; mask >>= 2; }
-    return i - (mask&1);
-}
-#endif
-#endif
-
-static inline int randomint(int x)
-{
-    return rand()%(x);
-}
-static inline float randomfloat(int x)
-{
-    return (float((rand()*float(x))/float(RAND_MAX)));
-}
-//1103515245+12345 are magic constants for LCG psuedorandom generator
-static inline float detrnd(uint s, int x)
-{
-    return int(((s*1103515245+12345)>>16)%x);
-}
-
-#define DELETEP(p) if(p) { delete   p; p = 0; }
 #define DELETEA(p) if(p) { delete[] p; p = 0; }
 
-#define PI (3.14159265358979f)
-#define SQRT2 (1.4142135623731f)
-#define SQRT3 (1.73205080756888f)
-#define SQRT5 (2.23606797749979f)
-#define RAD (PI / 180.0f)
-
 #ifdef WIN32
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-#ifndef M_LN2
-#define M_LN2 0.693147180559945309417
-#endif
 
 #ifndef __GNUC__
 #pragma warning (3: 4189)       // local variable is initialized but not referenced
@@ -174,16 +122,6 @@ template<size_t N> inline char *copystring(char (&d)[N], const char *s) { return
 inline char *concatstring(char *d, const char *s, size_t len) { size_t used = strlen(d); return used < len ? copystring(d+used, s, len-used) : d; }
 template<size_t N> inline char *concatstring(char (&d)[N], const char *s) { return concatstring(d, s, N); }
 
-inline char *prependstring(char *d, const char *s, size_t len)
-{
-    size_t slen = min(strlen(s), len);
-    memmove(&d[slen], d, min(len - slen, strlen(d) + 1));
-    memcpy(d, s, slen);
-    d[len-1] = 0;
-    return d;
-}
-template<size_t N> inline char *prependstring(char (&d)[N], const char *s) { return prependstring(d, s, N); }
-
 inline void nformatstring(char *d, int len, const char *fmt, ...) PRINTFARGS(3, 4);
 inline void nformatstring(char *d, int len, const char *fmt, ...)
 {
@@ -223,16 +161,6 @@ template<size_t N> inline bool matchstring(const char *s, size_t len, const char
 inline char *newstring(size_t l)                { return new char[l+1]; }
 inline char *newstring(const char *s, size_t l) { return copystring(newstring(l), s, l+1); }
 inline char *newstring(const char *s)           { size_t l = strlen(s); char *d = newstring(l); memcpy(d, s, l+1); return d; }
-
-inline char *newconcatstring(const char *s, const char *t)
-{
-    size_t slen = strlen(s), tlen = strlen(t);
-    char *r = newstring(slen + tlen);
-    memcpy(r, s, slen);
-    memcpy(&r[slen], t, tlen);
-    r[slen+tlen] = '\0';
-    return r;
-}
 
 template<class T> inline void memclear(T *p, size_t n) { memset((void *)p, 0, n * sizeof(T)); }
 template<class T> inline void memclear(T &p) { memset((void *)&p, 0, sizeof(T)); }
@@ -429,31 +357,6 @@ template<class T> struct isclass
     enum { yes = sizeof(test<T>(0)) == 1 ? 1 : 0, no = yes^1 };
 };
 
-struct stringslice
-{
-    const char *str;
-    int len;
-    stringslice() {}
-    stringslice(const char *str, int len) : str(str), len(len) {}
-    stringslice(const char *str, const char *end) : str(str), len(int(end-str)) {}
-
-    const char *end() const { return &str[len]; }
-};
-
-inline char *newstring(const stringslice &s) { return newstring(s.str, s.len); }
-inline const char *stringptr(const char *s) { return s; }
-inline const char *stringptr(const stringslice &s) { return s.str; }
-inline int stringlen(const char *s) { return int(strlen(s)); }
-inline int stringlen(const stringslice &s) { return s.len; }
-
-inline char *copystring(char *d, const stringslice &s, size_t len)
-{
-    size_t slen = min(size_t(s.len), len-1);
-    memcpy(d, s.str, slen);
-    d[slen] = 0;
-    return d;
-}
-
 static inline uint hthash(const char *key)
 {
     uint h = 5381;
@@ -467,7 +370,6 @@ static inline uint hthash(int key)
     return key;
 }
 
-template<size_t N> inline char *copystring(char (&d)[N], const stringslice &s) { return copystring(d, s, N); }
 
 template <class T> struct vector
 {
@@ -978,25 +880,6 @@ template<class H, class E, class K, class T> struct hashbase
     static inline T &enumdata(void *i) { return H::getdata(((chain *)i)->elem); }
 };
 
-template<class T> static inline void htrecycle(const T &) {}
-
-template<class T> struct hashset : hashbase<hashset<T>, T, T, T>
-{
-    typedef hashbase<hashset<T>, T, T, T> basetype;
-
-    hashset(int size = basetype::DEFAULTSIZE) : basetype(size) {}
-
-    static inline const T &getkey(const T &elem) { return elem; }
-    static inline T &getdata(T &elem) { return elem; }
-    template<class K> static inline void setkey(T &elem, const K &key) {}
-
-    template<class V>
-    T &add(const V &elem)
-    {
-        return basetype::access(elem, elem);
-    }
-};
-
 template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *, T>
 {
     typedef hashbase<hashnameset<T>, T, const char *, T> basetype;
@@ -1015,136 +898,8 @@ template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *,
     }
 };
 
-template<class K, class T> struct hashtableentry
-{
-    K key;
-    T data;
-};
-
-template<class K, class T>
-static inline void htrecycle(hashtableentry<K, T> &entry)
-{
-    htrecycle(entry.key);
-    htrecycle(entry.data);
-}
-
-template<class K, class T> struct hashtable : hashbase<hashtable<K, T>, hashtableentry<K, T>, K, T>
-{
-    typedef hashbase<hashtable<K, T>, hashtableentry<K, T>, K, T> basetype;
-    typedef typename basetype::elemtype elemtype;
-
-    hashtable(int size = basetype::DEFAULTSIZE) : basetype(size) {}
-
-    static inline K &getkey(elemtype &elem) { return elem.key; }
-    static inline T &getdata(elemtype &elem) { return elem.data; }
-    template<class U> static inline void setkey(elemtype &elem, const U &key) { elem.key = key; }
-};
-
 #define ENUMERATE_KT(ht,k,e,t,f,b) for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { k &e = (ht).enumkey(ec); t &f = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
 #define ENUMERATE(ht,t,e,b)       for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { t &e = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
-
-template <class T, int SIZE> struct queue
-{
-    int head, tail, len;
-    T data[SIZE];
-
-    queue() { clear(); }
-
-    void clear() { head = tail = len = 0; }
-
-    int length() const { return len; }
-    bool empty() const { return !len; }
-    bool full() const { return len == SIZE; }
-
-    bool inrange(size_t i) const { return i<size_t(len); }
-    bool inrange(int i) const { return i>=0 && i<len; }
-
-    T &added() { return data[tail > 0 ? tail-1 : SIZE-1]; }
-    T &added(int offset) { return data[tail-offset > 0 ? tail-offset-1 : tail-offset-1 + SIZE]; }
-    T &adding() { return data[tail]; }
-    T &adding(int offset) { return data[tail+offset >= SIZE ? tail+offset - SIZE : tail+offset]; }
-    T &add()
-    {
-        T &t = data[tail];
-        tail++;
-        if(tail >= SIZE) tail -= SIZE;
-        if(len < SIZE) len++;
-        return t;
-    }
-    T &add(const T &e) { return add() = e; }
-
-    T &pop()
-    {
-        tail--;
-        if(tail < 0) tail += SIZE;
-        len--;
-        return data[tail];
-    }
-
-    T &removing() { return data[head]; }
-    T &removing(int offset) { return data[head+offset >= SIZE ? head+offset - SIZE : head+offset]; }
-    T &remove()
-    {
-        T &t = data[head];
-        head++;
-        if(head >= SIZE) head -= SIZE;
-        len--;
-        return t;
-    }
-
-    T &operator[](int offset) { return removing(offset); }
-    const T &operator[](int offset) const { return removing(offset); }
-};
-
-template <class T, int SIZE> struct reversequeue : queue<T, SIZE>
-{
-    T &operator[](int offset) { return queue<T, SIZE>::added(offset); }
-    const T &operator[](int offset) const { return queue<T, SIZE>::added(offset); }
-};
-
-static inline bool islittleendian() { union { int i; uchar b[sizeof(int)]; } conv; conv.i = 1; return conv.b[0] != 0; }
-#ifdef SDL_BYTEORDER
-#define endianswap16 SDL_Swap16
-#define endianswap32 SDL_Swap32
-#define endianswap64 SDL_Swap64
-#else
-inline ushort endianswap16(ushort n) { return (n<<8) | (n>>8); }
-inline uint endianswap32(uint n) { return (n<<24) | (n>>24) | ((n>>8)&0xFF00) | ((n<<8)&0xFF0000); }
-inline ullong endianswap64(ullong n) { return endianswap32(uint(n >> 32)) | ((ullong)endianswap32(uint(n)) << 32); }
-#endif
-template<class T> inline T endianswap(T n) { union { T t; uint i; } conv; conv.t = n; conv.i = endianswap32(conv.i); return conv.t; }
-template<> inline ushort endianswap<ushort>(ushort n) { return endianswap16(n); }
-template<> inline short endianswap<short>(short n) { return endianswap16(n); }
-template<> inline uint endianswap<uint>(uint n) { return endianswap32(n); }
-template<> inline int endianswap<int>(int n) { return endianswap32(n); }
-template<> inline ullong endianswap<ullong>(ullong n) { return endianswap64(n); }
-template<> inline llong endianswap<llong>(llong n) { return endianswap64(n); }
-template<> inline double endianswap<double>(double n) { union { double t; uint i; } conv; conv.t = n; conv.i = endianswap64(conv.i); return conv.t; }
-template<class T> inline void endianswap(T *buf, size_t len) { for(T *end = &buf[len]; buf < end; buf++) *buf = endianswap(*buf); }
-template<class T> inline T endiansame(T n) { return n; }
-template<class T> inline void endiansame(T *buf, size_t len) {}
-#ifdef SDL_BYTEORDER
-#if SDL_BYTEORDER == SDL_LIL_ENDIAN
-#define LIL_ENDIAN_SWAP endiansame
-#define BIG_SWAP endianswap
-#else
-#define LIL_ENDIAN_SWAP endianswap
-#define BIG_SWAP endiansame
-#endif
-#elif defined(__BYTE_ORDER__)
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define LIL_ENDIAN_SWAP endiansame
-#define BIG_SWAP endianswap
-#else
-#define LIL_ENDIAN_SWAP endianswap
-#define BIG_SWAP endiansame
-#endif
-#else
-template<class T> inline T LIL_ENDIAN_SWAP(T n) { return islittleendian() ? n : endianswap(n); }
-template<class T> inline void LIL_ENDIAN_SWAP(T *buf, size_t len) { if(!islittleendian()) endianswap(buf, len); }
-template<class T> inline T BIG_SWAP(T n) { return islittleendian() ? endianswap(n) : n; }
-template<class T> inline void BIG_SWAP(T *buf, size_t len) { if(islittleendian()) endianswap(buf, len); }
-#endif
 
 /* workaround for some C platforms that have these two functions as macros - not used anywhere */
 #ifdef getchar
@@ -1187,13 +942,9 @@ struct stream
 
     template<class T> size_t put(const T *v, size_t n) { return write(v, n*sizeof(T))/sizeof(T); }
     template<class T> bool put(T n) { return write(&n, sizeof(n)) == sizeof(n); }
-    template<class T> bool putlil(T n) { return put<T>(LIL_ENDIAN_SWAP(n)); }
-    template<class T> bool putbig(T n) { return put<T>(BIG_SWAP(n)); }
 
     template<class T> size_t get(T *v, size_t n) { return read(v, n*sizeof(T))/sizeof(T); }
     template<class T> T get() { T n; return read(&n, sizeof(n)) == sizeof(n) ? n : 0; }
-    template<class T> T getlil() { return LIL_ENDIAN_SWAP(get<T>()); }
-    template<class T> T getbig() { return BIG_SWAP(get<T>()); }
 };
 
 template<class T>
@@ -1217,10 +968,6 @@ extern string homedir;
 
 extern char *path(char *s);
 
-
-template<size_t N> static inline void getstring(char (&t)[N], ucharbuf &p) { getstring(t, p, N); }
-template<size_t N> static inline void filtertext(char (&dst)[N], const char *src, bool whitespace = true, bool forcespace = false) { filtertext(dst, src, whitespace, forcespace, N-1); }
-
 struct ipmask
 {
     enet_uint32 ip, mask;
@@ -1231,4 +978,3 @@ struct ipmask
 };
 
 #endif
-
