@@ -33,16 +33,6 @@ typedef unsigned long long int ullong;
 #define UNUSED
 #endif
 
-#ifdef swap
-#undef swap
-#endif
-template<class T>
-static inline void swap(T &a, T &b)
-{
-    T t = a;
-    a = b;
-    b = t;
-}
 #ifdef max
 #undef max
 #endif
@@ -77,14 +67,6 @@ static inline T clamp(T a, U b, U c)
 #define DELETEA(p) if(p) { delete[] p; p = 0; }
 
 #ifdef WIN32
-
-#ifndef __GNUC__
-#pragma warning (3: 4189)       // local variable is initialized but not referenced
-#pragma warning (disable: 4244) // conversion from 'int' to 'float', possible loss of data
-#pragma warning (disable: 4267) // conversion from 'size_t' to 'int', possible loss of data
-#pragma warning (disable: 4355) // 'this' : used in base member initializer list
-#pragma warning (disable: 4996) // 'strncpy' was declared deprecated
-#endif
 
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -122,15 +104,6 @@ template<size_t N> inline char *copystring(char (&d)[N], const char *s) { return
 inline char *concatstring(char *d, const char *s, size_t len) { size_t used = strlen(d); return used < len ? copystring(d+used, s, len-used) : d; }
 template<size_t N> inline char *concatstring(char (&d)[N], const char *s) { return concatstring(d, s, N); }
 
-inline void nformatstring(char *d, int len, const char *fmt, ...) PRINTFARGS(3, 4);
-inline void nformatstring(char *d, int len, const char *fmt, ...)
-{
-    va_list v;
-    va_start(v, fmt);
-    vformatstring(d, fmt, v, len);
-    va_end(v);
-}
-
 template<size_t N> inline void formatstring(char (&d)[N], const char *fmt, ...) PRINTFARGS(2, 3);
 template<size_t N> inline void formatstring(char (&d)[N], const char *fmt, ...)
 {
@@ -140,31 +113,11 @@ template<size_t N> inline void formatstring(char (&d)[N], const char *fmt, ...)
     va_end(v);
 }
 
-template<size_t N> inline void concformatstring(char (&d)[N], const char *fmt, ...) PRINTFARGS(2, 3);
-template<size_t N> inline void concformatstring(char (&d)[N], const char *fmt, ...)
-{
-    va_list v;
-    va_start(v, fmt);
-    int len = strlen(d);
-    vformatstring(d + len, fmt, v, int(N) - len);
-    va_end(v);
-}
-
 #define DEF_FORMAT_STRING(d,...) string d; formatstring(d, __VA_ARGS__)
 #define DEFV_FORMAT_STRING(d,last,fmt) string d; { va_list ap; va_start(ap, last); vformatstring(d, fmt, ap); va_end(ap); }
 
-template<size_t N> inline bool matchstring(const char *s, size_t len, const char (&d)[N])
-{
-    return len == N-1 && !memcmp(s, d, N-1);
-}
-
-inline char *newstring(size_t l)                { return new char[l+1]; }
-inline char *newstring(const char *s, size_t l) { return copystring(newstring(l), s, l+1); }
-inline char *newstring(const char *s)           { size_t l = strlen(s); char *d = newstring(l); memcpy(d, s, l+1); return d; }
-
-template<class T> inline void memclear(T *p, size_t n) { memset((void *)p, 0, n * sizeof(T)); }
-template<class T> inline void memclear(T &p) { memset((void *)&p, 0, sizeof(T)); }
-template<class T, size_t N> inline void memclear(T (&p)[N]) { memset((void *)p, 0, N * sizeof(T)); }
+inline char *newstring(size_t l)      { return new char[l+1]; }
+inline char *newstring(const char *s) { size_t l = strlen(s); char *d = newstring(l); memcpy(d, s, l+1); return d; }
 
 template <class T>
 struct databuf
@@ -333,23 +286,6 @@ struct packetbuf : ucharbuf
     }
 };
 
-template<class T>
-static inline float heapscore(const T &n) { return n; }
-
-struct sortless
-{
-    template<class T> bool operator()(const T &x, const T &y) const { return x < y; }
-    bool operator()(char *x, char *y) const { return strcmp(x, y) < 0; }
-    bool operator()(const char *x, const char *y) const { return strcmp(x, y) < 0; }
-};
-
-struct sortnameless
-{
-    template<class T> bool operator()(const T &x, const T &y) const { return sortless()(x.name, y.name); }
-    template<class T> bool operator()(T *x, T *y) const { return sortless()(x->name, y->name); }
-    template<class T> bool operator()(const T *x, const T *y) const { return sortless()(x->name, y->name); }
-};
-
 template<class T> struct isclass
 {
     template<class C> static char test(void (C::*)(void));
@@ -364,12 +300,10 @@ static inline uint hthash(const char *key)
     return h;
 }
 
-
 static inline uint hthash(int key)
 {
     return key;
 }
-
 
 template <class T> struct vector
 {
@@ -389,14 +323,6 @@ template <class T> struct vector
 
     ~vector() { shrink(0); if(buf) delete[] (uchar *)buf; }
 
-    vector<T> &operator=(const vector<T> &v)
-    {
-        shrink(0);
-        if(v.length() > alen) growbuf(v.length());
-        for(int i = 0; i < v.length(); i++) add(v[i]);
-        return *this;
-    }
-
     T &add(const T &x)
     {
         if(ulen==alen) growbuf(ulen+1);
@@ -411,13 +337,6 @@ template <class T> struct vector
         return buf[ulen++];
     }
 
-    T &dup()
-    {
-        if(ulen==alen) growbuf(ulen+1);
-        new (&buf[ulen]) T(buf[ulen-1]);
-        return buf[ulen++];
-    }
-
     T &pop() { return buf[--ulen]; }
     T &last() { return buf[ulen-1]; }
     void drop() { ulen--; buf[ulen].~T(); }
@@ -428,26 +347,12 @@ template <class T> struct vector
     T &operator[](int i) { ASSERT(i>=0 && i<ulen); return buf[i]; }
     const T &operator[](int i) const { ASSERT(i >= 0 && i<ulen); return buf[i]; }
 
-    T *disown() { T *r = buf; buf = NULL; alen = ulen = 0; return r; }
-
     void shrink(int i) { ASSERT(i<=ulen); if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
     void setsize(int i) { ASSERT(i<=ulen); ulen = i; }
-
-    void deletecontents(int n = 0) { while(ulen > n) delete pop(); }
-    void deletearrays(int n = 0) { while(ulen > n) delete[] pop(); }
 
     T *getbuf() { return buf; }
     const T *getbuf() const { return buf; }
     bool inbuf(const T *e) const { return e >= buf && e < &buf[ulen]; }
-
-    template<class F>
-    void sort(F fun, int i = 0, int n = -1)
-    {
-        quicksort(&buf[i], n < 0 ? ulen-i : n, fun);
-    }
-
-    void sort() { sort(sortless()); }
-    void sortname() { sort(sortnameless()); }
 
     void growbuf(int sz)
     {
@@ -563,10 +468,22 @@ template<class H, class E, class K, class T> struct hashbase
     typedef K keytype;
     typedef T datatype;
 
-    enum { CHUNKSIZE = 64 };
+    enum
+    {
+        CHUNKSIZE = 64
+    };
 
-    struct chain { E elem; chain *next; };
-    struct chainchunk { chain chains[CHUNKSIZE]; chainchunk *next; };
+    struct chain
+    {
+        E elem;
+        chain *next;
+    };
+
+    struct chainchunk
+    {
+        chain chains[CHUNKSIZE];
+        chainchunk *next;
+    };
 
     int size;
     int numelems;
@@ -661,46 +578,6 @@ template<class H, class E, class K, class T> struct hashbase
         HTFIND( , notfound);
     }
 
-    template<class U>
-    bool remove(const U &key)
-    {
-        uint h = hthash(key)&(size-1);
-        for(chain **p = &chains[h], *c = chains[h]; c; p = &c->next, c = c->next)
-        {
-            if(htcmp(key, H::getkey(c->elem)))
-            {
-                *p = c->next;
-                c->elem.~E();
-                new (&c->elem) E;
-                c->next = unused;
-                unused = c;
-                numelems--;
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void recycle()
-    {
-        if(!numelems) return;
-        for(int i = 0; i < int(size); ++i)
-        {
-            chain *c = chains[i];
-            if(!c) continue;
-            for(;;)
-            {
-                htrecycle(c->elem);
-                if(!c->next) break;
-                c = c->next;
-            }
-            c->next = unused;
-            unused = chains[i];
-            chains[i] = NULL;
-        }
-        numelems = 0;
-    }
-
     void deletechunks()
     {
         for(chainchunk *nextchunk; chunks; chunks = nextchunk)
@@ -719,9 +596,18 @@ template<class H, class E, class K, class T> struct hashbase
         deletechunks();
     }
 
-    static inline chain *enumnext(void *i) { return ((chain *)i)->next; }
-    static inline K &enumkey(void *i) { return H::getkey(((chain *)i)->elem); }
-    static inline T &enumdata(void *i) { return H::getdata(((chain *)i)->elem); }
+    static inline chain *enumnext(void *i)
+    {
+        return ((chain *)i)->next;
+    }
+    static inline K &enumkey(void *i)
+    {
+        return H::getkey(((chain *)i)->elem);
+    }
+    static inline T &enumdata(void *i)
+    {
+        return H::getdata(((chain *)i)->elem);
+    }
 };
 
 template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *, T>
@@ -730,10 +616,27 @@ template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *,
 
     hashnameset(int size = basetype::DEFAULTSIZE) : basetype(size) {}
 
-    template<class U> static inline const char *getkey(const U &elem) { return elem.name; }
-    template<class U> static inline const char *getkey(U *elem) { return elem->name; }
-    static inline T &getdata(T &elem) { return elem; }
-    template<class K> static inline void setkey(T &elem, const K &key) {}
+    template<class U>
+    static inline const char *getkey(const U &elem)
+    {
+        return elem.name;
+    }
+
+    template<class U>
+    static inline const char *getkey(U *elem)
+    {
+        return elem->name;
+    }
+
+    static inline T &getdata(T &elem)
+    {
+        return elem;
+    }
+
+    template<class K>
+    static inline void setkey(T &elem, const K &key)
+    {
+    }
 
     template<class V>
     T &add(const V &elem)
@@ -741,17 +644,8 @@ template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *,
         return basetype::access(getkey(elem), elem);
     }
 };
-
-#define ENUMERATE_KT(ht,k,e,t,f,b) for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { k &e = (ht).enumkey(ec); t &f = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
-#define ENUMERATE(ht,t,e,b)       for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { t &e = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
-
-/* workaround for some C platforms that have these two functions as macros - not used anywhere */
-#ifdef getchar
-#undef getchar
-#endif
-#ifdef putchar
-#undef putchar
-#endif
+//note pointer walk for ec
+#define ENUMERATE(ht,t,e,b) for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { t &e = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
 
 struct stream
 {
@@ -776,8 +670,6 @@ struct stream
     virtual size_t read(void *buf, size_t len) { return 0; }
     virtual size_t write(const void *buf, size_t len) { return 0; }
     virtual bool flush() { return true; }
-    virtual int getchar() { uchar c; return read(&c, 1) == 1 ? c : -1; }
-    virtual bool putchar(int n) { uchar c = n; return write(&c, 1) == 1; }
     virtual bool getline(char *str, size_t len);
     virtual bool putstring(const char *str) { size_t len = strlen(str); return write(str, len) == len; }
     virtual bool putline(const char *str) { return putstring(str) && putchar('\n'); }
@@ -798,15 +690,31 @@ struct streambuf
 
     streambuf(stream *s) : s(s) {}
 
-    T get() { return s->get<T>(); }
-    size_t get(T *vals, size_t numvals) { return s->get(vals, numvals); }
-    void put(const T &val) { s->put(&val, 1); }
-    void put(const T *vals, size_t numvals) { s->put(vals, numvals); }
-    size_t length() { return s->size(); }
-};
+    T get()
+    {
+        return s->get<T>();
+    }
 
-extern size_t decodeutf8(uchar *dst, size_t dstlen, const uchar *src, size_t srclen, size_t *carry = NULL);
-extern size_t encodeutf8(uchar *dstbuf, size_t dstlen, const uchar *srcbuf, size_t srclen, size_t *carry = NULL);
+    size_t get(T *vals, size_t numvals)
+    {
+        return s->get(vals, numvals);
+    }
+
+    void put(const T &val)
+    {
+        s->put(&val, 1);
+    }
+
+    void put(const T *vals, size_t numvals)
+    {
+        s->put(vals, numvals);
+    }
+
+    size_t length()
+    {
+        return s->size();
+    }
+};
 
 extern string homedir;
 
@@ -815,19 +723,31 @@ static inline char *path(char *s)
     for(char *curpart = s;;)
     {
         char *endpart = strchr(curpart, '&');
-        if(endpart) *endpart = '\0';
+        if(endpart)
+        {
+            *endpart = '\0';
+        }
         if(curpart[0]=='<')
         {
             char *file = strrchr(curpart, '>');
-            if(!file) return s;
+            if(!file)
+            {
+                return s;
+            }
             curpart = file+1;
         }
-        for(char *t = curpart; (t = strpbrk(t, "/\\")); *t++ = PATHDIV);
-        for(char *prevdir = NULL, *curdir = curpart;;)
+        for(char *t = curpart; (t = strpbrk(t, "/\\")); *t++ = PATHDIV) //note pointer walk
+        {
+            //(empty body)
+        }
+        for(char *prevdir = NULL, *curdir = curpart;;) //note pointer walk
         {
             prevdir = curdir[0]==PATHDIV ? curdir+1 : curdir;
             curdir = strchr(prevdir, PATHDIV);
-            if(!curdir) break;
+            if(!curdir)
+            {
+                break;
+            }
             if(prevdir+1==curdir && prevdir[0]=='.')
             {
                 memmove(prevdir, curdir+1, strlen(curdir+1)+1);
@@ -835,12 +755,18 @@ static inline char *path(char *s)
             }
             else if(curdir[1]=='.' && curdir[2]=='.' && curdir[3]==PATHDIV)
             {
-                if(prevdir+2==curdir && prevdir[0]=='.' && prevdir[1]=='.') continue;
+                if(prevdir+2==curdir && prevdir[0]=='.' && prevdir[1]=='.')
+                {
+                    continue;
+                }
                 memmove(prevdir, curdir+4, strlen(curdir+4)+1);
                 if(prevdir-2 >= curpart && prevdir[-1]==PATHDIV)
                 {
                     prevdir -= 2;
-                    while(prevdir-1 >= curpart && prevdir[-1] != PATHDIV) --prevdir;
+                    while(prevdir-1 >= curpart && prevdir[-1] != PATHDIV)
+                    {
+                        --prevdir;
+                    }
                 }
                 curdir = prevdir;
             }
@@ -850,7 +776,10 @@ static inline char *path(char *s)
             *endpart = '&';
             curpart = endpart+1;
         }
-        else break;
+        else
+        {
+            break;
+        }
     }
     return s;
 }
