@@ -108,7 +108,10 @@ struct messagebuf
     messagebuf(vector<messagebuf *> &owner) : owner(owner), refs(0) {}
 
     const char *getbuf() { return buf.getbuf(); }
-    int length() { return buf.length(); }
+    int length()
+    {
+        return buf.length();
+    }
     void purge();
 
     bool equals(const messagebuf &m) const
@@ -123,7 +126,10 @@ struct messagebuf
 
     void concat(const messagebuf &m)
     {
-        if(buf.length() && buf.last() == '\0') buf.pop();
+        if(buf.length() && buf.last() == '\0')
+        {
+            buf.pop();
+        }
         buf.put(m.buf.getbuf(), m.buf.length());
     }
 };
@@ -181,7 +187,10 @@ void conoutf(const char *fmt, ...)
 void purgeclient(int n)
 {
     client &c = *clients[n];
-    if(c.message) c.message->purge();
+    if(c.message)
+    {
+        c.message->purge();
+    }
     enet_socket_destroy(c.socket);
     delete clients[n];
     clients.remove(n);
@@ -204,10 +213,19 @@ ENetSocket pingsocket = ENET_SOCKET_NULL;
 
 bool setuppingsocket(ENetAddress *address)
 {
-    if(pingsocket != ENET_SOCKET_NULL) return true;
+    if(pingsocket != ENET_SOCKET_NULL)
+    {
+        return true;
+    }
     pingsocket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
-    if(pingsocket == ENET_SOCKET_NULL) return false;
-    if(address && enet_socket_bind(pingsocket, address) < 0) return false;
+    if(pingsocket == ENET_SOCKET_NULL)
+    {
+        return false;
+    }
+    if(address && enet_socket_bind(pingsocket, address) < 0)
+    {
+        return false;
+    }
     enet_socket_set_option(pingsocket, ENET_SOCKOPT_NONBLOCK, 1);
     return true;
 }
@@ -224,34 +242,55 @@ void setupserver(int port, const char *ip = NULL)
             fatal("failed to resolve server address: %s", ip);
     }
     serversocket = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
-    if(serversocket==ENET_SOCKET_NULL ||
-       enet_socket_set_option(serversocket, ENET_SOCKOPT_REUSEADDR, 1) < 0 ||
-       enet_socket_bind(serversocket, &address) < 0 ||
+    if(serversocket==ENET_SOCKET_NULL)
+    {
+        fatal("failed to bind socket: null socket error");
+    }
+    if(enet_socket_set_option(serversocket, ENET_SOCKOPT_REUSEADDR, 1) < 0)
+    {
+        fatal("failed to bind socket: reuseaddr error");
+    }
+    if(enet_socket_bind(serversocket, &address) < 0 ||
        enet_socket_listen(serversocket, -1) < 0)
-        fatal("failed to create server socket");
+    {
+        fatal("failed to bind socket");
+    }
     if(enet_socket_set_option(serversocket, ENET_SOCKOPT_NONBLOCK, 1)<0)
+    {
         fatal("failed to make server socket non-blocking");
+    }
     if(!setuppingsocket(&address))
+    {
         fatal("failed to create ping socket");
-
+    }
     enet_time_set(0);
-
     starttime = time(NULL);
     char *ct = ctime(&starttime);
-    if(strchr(ct, '\n')) *strchr(ct, '\n') = '\0';
+    if(strchr(ct, '\n'))
+    {
+        *strchr(ct, '\n') = '\0';
+    }
     conoutf("*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
 }
 
 void genserverlist()
 {
-    if(!updateserverlist) return;
+    if(!updateserverlist)
+    {
+        return;
+    }
     while(gameserverlists.length() && gameserverlists.last()->refs<=0)
+    {
         delete gameserverlists.pop();
+    }
     messagebuf *l = new messagebuf(gameserverlists);
     for(int i = 0; i < gameservers.length(); i++)
     {
         gameserver &s = *gameservers[i];
-        if(!s.lastpong) continue;
+        if(!s.lastpong)
+        {
+            continue;
+        }
         DEF_FORMAT_STRING(cmd, "addserver %s %d\n", s.ip, s.port);
         l->buf.put(cmd, strlen(cmd));
     }
@@ -279,11 +318,16 @@ void gengbanlist()
         return;
     }
     while(gbanlists.length() && gbanlists.last()->refs<=0)
+    {
         delete gbanlists.pop();
+    }
     for(int i = 0; i < gbanlists.length(); i++)
     {
         messagebuf *m = gbanlists[i];
-        if(m->refs > 0 && !m->endswith(*l)) m->concat(*l);
+        if(m->refs > 0 && !m->endswith(*l))
+        {
+            m->concat(*l);
+        }
     }
     gbanlists.add(l);
     for(int i = 0; i < clients.length(); i++)
@@ -299,12 +343,18 @@ void gengbanlist()
 
 void addgameserver(client &c)
 {
-    if(gameservers.length() >= SERVER_LIMIT) return;
+    if(gameservers.length() >= SERVER_LIMIT)
+    {
+        return;
+    }
     int dups = 0;
     for(int i = 0; i < gameservers.length(); i++)
     {
         gameserver &s = *gameservers[i];
-        if(s.address.host != c.address.host) continue; 
+        if(s.address.host != c.address.host)
+        {
+            continue;
+        }
         ++dups; 
         if(s.port == c.servport)
         {
@@ -339,7 +389,9 @@ client *findclient(gameserver &s)
     {
         client &c = *clients[i];
         if(s.address.host == c.address.host && s.port == c.servport)
+        {
             return &c;
+        }
     }
     return NULL;
 }
@@ -347,7 +399,10 @@ client *findclient(gameserver &s)
 void servermessage(gameserver &s, const char *msg)
 {
     client *c = findclient(s);
-    if(c) outputf(*c, msg);
+    if(c)
+    {
+        outputf(*c, msg);
+    }
 }
 
 void checkserverpongs()
@@ -360,7 +415,10 @@ void checkserverpongs()
         buf.data = pong;
         buf.dataLength = sizeof(pong);
         int len = enet_socket_receive(pingsocket, &addr, &buf, 1);
-        if(len <= 0) break;
+        if(len <= 0)
+        {
+            break;
+        }
         for(int i = 0; i < gameservers.length(); i++)
         {
             gameserver &s = *gameservers[i];
@@ -380,7 +438,10 @@ void checkserverpongs()
                         }
                     }
                 }
-                if(!s.lastpong) updateserverlist = true;
+                if(!s.lastpong)
+                {
+                    updateserverlist = true;
+                }
                 s.lastpong = servtime ? servtime : 1;
                 break;
             }
@@ -456,9 +517,15 @@ void purgeauths(client &c)
             freechallenge(c.authreqs[i].answer);
             expired = i + 1;
         }
-        else break;
+        else
+        {
+            break;
+        }
     }
-    if(expired > 0) c.authreqs.remove(0, expired);
+    if(expired > 0)
+    {
+        c.authreqs.remove(0, expired);
+    }
 }
 
 void reqauth(client &c, uint id, char *name)
@@ -475,10 +542,16 @@ void reqauth(client &c, uint id, char *name)
     if(ct)
     {
         char *newline = strchr(ct, '\n');
-        if(newline) *newline = '\0';
+        if(newline)
+        {
+            *newline = '\0';
+        }
     }
     string ip;
-    if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0) copystring(ip, "-");
+    if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0)
+    {
+        copystring(ip, "-");
+    }
     conoutf("%s: attempting \"%s\" as %u from %s", ct ? ct : "-", name, id, ip);
 
     userinfo *u = users.access(name);
@@ -515,7 +588,10 @@ void confauth(client &c, uint id, const char *val)
         if(c.authreqs[i].id == id)
         {
             string ip;
-            if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0) copystring(ip, "-");
+            if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0)
+            {
+                copystring(ip, "-");
+            }
             if(checkchallenge(val, c.authreqs[i].answer))
             {
                 outputf(c, "succauth %u\n", id);
@@ -536,7 +612,10 @@ void confauth(client &c, uint id, const char *val)
 
 bool checkclientinput(client &c)
 {
-    if(c.inputpos<0) return true;
+    if(c.inputpos<0)
+    {
+        return true;
+    }
     char *end = (char *)memchr(c.input, '\n', c.inputpos);
     while(end)
     {
@@ -549,7 +628,10 @@ bool checkclientinput(client &c)
         if(!strncmp(c.input, "list", 4) && (!c.input[4] || c.input[4] == '\n' || c.input[4] == '\r'))
         {
             genserverlist();
-            if(gameserverlists.empty() || c.message) return false;
+            if(gameserverlists.empty() || c.message)
+            {
+                return false;
+            }
             c.message = gameserverlists.last();
             c.message->refs++;
             c.output.setsize(0);
@@ -559,8 +641,14 @@ bool checkclientinput(client &c)
         }
         else if(sscanf(c.input, "regserv %d", &port) == 1)
         {
-            if(checkban(servbans, c.address.host)) return false;
-            if(port < 0 || port > 0xFFFF || (c.servport >= 0 && port != c.servport)) outputf(c, "failreg invalid port\n");
+            if(checkban(servbans, c.address.host))
+            {
+                return false;
+            }
+            if(port < 0 || port > 0xFFFF || (c.servport >= 0 && port != c.servport))
+            {
+                outputf(c, "failreg invalid port\n");
+            }
             else
             {
                 c.servport = port;
@@ -601,30 +689,41 @@ void checkclients()
         else ENET_SOCKETSET_ADD(readset, c.socket);
         maxsock = max(maxsock, c.socket);
     }
-    if(enet_socketset_select(maxsock, &readset, &writeset, 1000)<=0) return;
-
-    if(ENET_SOCKETSET_CHECK(readset, pingsocket)) checkserverpongs();
+    if(enet_socketset_select(maxsock, &readset, &writeset, 1000)<=0)
+    {
+        return;
+    }
+    if(ENET_SOCKETSET_CHECK(readset, pingsocket))
+    {
+        checkserverpongs();
+    }
     if(ENET_SOCKETSET_CHECK(readset, serversocket))
     {
         ENetAddress address;
         ENetSocket clientsocket = enet_socket_accept(serversocket, &address);
-        if(clients.length()>=CLIENT_LIMIT || checkban(bans, address.host)) enet_socket_destroy(clientsocket);
+        if(clients.length()>=CLIENT_LIMIT || checkban(bans, address.host))
+        {
+            enet_socket_destroy(clientsocket);
+        }
         else if(clientsocket!=ENET_SOCKET_NULL)
         {
-            int dups = 0, oldest = -1;
+            int dups = 0,
+                oldest = -1;
             for(int i = 0; i < clients.length(); i++)
             {
                 if(clients[i]->address.host == address.host)
                 {
                     dups++;
-                    if(oldest<0 || clients[i]->connecttime < clients[oldest]->connecttime) oldest = i;
+                    if(oldest<0 || clients[i]->connecttime < clients[oldest]->connecttime)
+                    {
+                        oldest = i;
+                    }
                 }
             }
             if(dups >= DUP_LIMIT)
             {
                 purgeclient(oldest);
             }
-
             client *c = new client;
             c->address = address;
             c->socket = clientsocket;
@@ -650,7 +749,10 @@ void checkclients()
                 c.outputpos += res;
                 if(c.outputpos>=len)
                 {
-                    if(c.output.length()) c.output.setsize(0);
+                    if(c.output.length())
+                    {
+                        c.output.setsize(0);
+                    }
                     else
                     {
                         c.message->purge();
@@ -664,7 +766,11 @@ void checkclients()
                     }
                 }
             }
-            else { purgeclient(i--); continue; }
+            else
+            {
+                purgeclient(i--);
+                continue;
+            }
         }
         if(ENET_SOCKETSET_CHECK(readset, c.socket))
         {
@@ -675,13 +781,29 @@ void checkclients()
             if(res>0)
             {
                 c.inputpos += res;
-                c.input[min(c.inputpos, (int)sizeof(c.input)-1)] = '\0';
-                if(!checkclientinput(c)) { purgeclient(i--); continue; }
+                c.input[min(c.inputpos, static_cast<int>(sizeof(c.input)-1))] = '\0';
+                if(!checkclientinput(c))
+                {
+                    purgeclient(i--);
+                    continue;
+                }
             }
-            else { purgeclient(i--); continue; }
+            else
+            {
+                purgeclient(i--);
+                continue;
+            }
         }
-        if(c.output.length() > OUTPUT_LIMIT) { purgeclient(i--); continue; }
-        if(ENET_TIME_DIFFERENCE(servtime, c.lastinput) >= (c.registeredserver ? KEEPALIVE_TIME : CLIENT_TIME)) { purgeclient(i--); continue; }
+        if(c.output.length() > OUTPUT_LIMIT)
+        {
+            purgeclient(i--);
+            continue;
+        }
+        if(ENET_TIME_DIFFERENCE(servtime, c.lastinput) >= (c.registeredserver ? KEEPALIVE_TIME : CLIENT_TIME))
+        {
+            purgeclient(i--);
+            continue;
+        }
     }
 }
 
@@ -689,7 +811,10 @@ void banclients()
 {
     for(int i = clients.length(); --i >=0;) //note reverse iteration
     {
-        if(checkban(bans, clients[i]->address.host)) purgeclient(i);
+        if(checkban(bans, clients[i]->address.host))
+        {
+            purgeclient(i);
+        }
     }
 }
 
@@ -704,20 +829,34 @@ void reloadsignal(int signum)
 
 int main(int argc, char **argv)
 {
-    if(enet_initialize()<0) fatal("Unable to initialise network module");
+    if(enet_initialize()<0)
+    {
+        fatal("Unable to initialise network module");
+    }
     atexit(enet_deinitialize);
-
     const char *dir = "", *ip = NULL;
     int port = 42068;
-    if(argc>=2) dir = argv[1];
-    if(argc>=3) port = atoi(argv[2]);
-    if(argc>=4) ip = argv[3];
+    if(argc>=2)
+    {
+        dir = argv[1];
+    }
+    if(argc>=3)
+    {
+        port = atoi(argv[2]);
+    }
+    if(argc>=4)
+    {
+        ip = argv[3];
+    }
     DEF_FORMAT_STRING(logname, "%smaster.log", dir);
     DEF_FORMAT_STRING(cfgname, "%smaster.cfg", dir);
     path(logname);
     path(cfgname);
     logfile = fopen(logname, "a");
-    if(!logfile) logfile = stdout;
+    if(!logfile)
+    {
+        logfile = stdout;
+    }
     setvbuf(logfile, NULL, _IOLBF, BUFSIZ);
 #ifndef WIN32
     signal(SIGUSR1, reloadsignal);
@@ -734,7 +873,6 @@ int main(int argc, char **argv)
             gengbanlist();
             reloadcfg = 0;
         }
-
         servtime = enet_time_get();
         checkclients();
         checkgameservers();
