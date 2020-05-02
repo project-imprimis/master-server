@@ -644,7 +644,7 @@ template<class T> struct hashnameset : hashbase<hashnameset<T>, T, const char *,
         return basetype::access(getkey(elem), elem);
     }
 };
-//note pointer walk for ec
+//note void pointer walk for ec
 #define ENUMERATE(ht,t,e,b) for(int i = 0; i < int((ht).size); ++i) for(void *ec = (ht).chains[i]; ec;) { t &e = (ht).enumdata(ec); ec = (ht).enumnext(ec); b; }
 
 struct stream

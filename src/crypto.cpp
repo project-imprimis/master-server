@@ -1080,62 +1080,6 @@ void calcpubkey(gfint privkey, vector<char> &pubstr)
     pubstr.add('\0');
 }
 
-bool calcpubkey(const char *privstr, vector<char> &pubstr)
-{
-    if(!privstr[0])
-    {
-        return false;
-    }
-    gfint privkey;
-    privkey.parse(privstr);
-    calcpubkey(privkey, pubstr);
-    return true;
-}
-
-void genprivkey(const char *seed, vector<char> &privstr, vector<char> &pubstr)
-{
-    tiger::hashval hash;
-    tiger::hash((const uchar *)seed, (int)strlen(seed), hash);
-    bigint<8*sizeof(hash.bytes)/BI_DIGIT_BITS> privkey;
-    memcpy(privkey.digits, hash.bytes, sizeof(hash.bytes));
-    privkey.len = 8*sizeof(hash.bytes)/BI_DIGIT_BITS;
-    privkey.shrink();
-    privkey.printdigits(privstr);
-    privstr.add('\0');
-
-    calcpubkey(privkey, pubstr);
-}
-
-bool hashstring(const char *str, char *result, int maxlen)
-{
-    tiger::hashval hv;
-    if(maxlen < 2*(int)sizeof(hv.bytes) + 1)
-    {
-        return false;
-    }
-    tiger::hash((uchar *)str, strlen(str), hv);
-    for(int i = 0; i < int(sizeof(hv.bytes)); ++i)
-    {
-        uchar c = hv.bytes[i];
-        *result++ = "0123456789abcdef"[c>>4];
-        *result++ = "0123456789abcdef"[c&0xF];
-    }
-    *result = '\0';
-    return true;
-}
-
-void answerchallenge(const char *privstr, const char *challenge, vector<char> &answerstr)
-{
-    gfint privkey;
-    privkey.parse(privstr);
-    ecjacobian answer;
-    answer.parse(challenge);
-    answer.mul(privkey);
-    answer.normalize();
-    answer.x.printdigits(answerstr);
-    answerstr.add('\0');
-}
-
 void *parsepubkey(const char *pubstr)
 {
     ecjacobian *pubkey = new ecjacobian;
