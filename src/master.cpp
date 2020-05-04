@@ -107,7 +107,11 @@ struct messagebuf
 
     messagebuf(vector<messagebuf *> &owner) : owner(owner), refs(0) {}
 
-    const char *getbuf() { return buf.getbuf(); }
+    const char *getbuf()
+    {
+        return buf.getbuf();
+    }
+
     int length()
     {
         return buf.length();
@@ -198,7 +202,10 @@ void purgeclient(int n)
 
 void output(client &c, const char *msg, int len = 0)
 {
-    if(!len) len = strlen(msg);
+    if(!len)
+    {
+        len = strlen(msg);
+    }
     c.output.put(msg, len);
 }
 
@@ -239,7 +246,9 @@ void setupserver(int port, const char *ip = NULL)
     if(ip)
     {
         if(enet_address_set_host(&address, ip)<0)
+        {
             fatal("failed to resolve server address: %s", ip);
+        }
     }
     serversocket = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
     if(serversocket==ENET_SOCKET_NULL)
@@ -531,10 +540,10 @@ void purgeauths(client &c)
 void reqauth(client &c, uint id, char *name)
 {
     if(ENET_TIME_DIFFERENCE(servtime, c.lastauth) < AUTH_THROTTLE)
+    {
         return;
-
+    }
     c.lastauth = servtime;
-
     purgeauths(c);
 
     time_t t = time(NULL);
@@ -621,7 +630,6 @@ bool checkclientinput(client &c)
     {
         *end++ = '\0';
         c.lastinput = servtime;
-
         int port;
         uint id;
         string user, val;
@@ -668,7 +676,7 @@ bool checkclientinput(client &c)
 
         end = (char *)memchr(c.input, '\n', c.inputpos);
     }
-    return c.inputpos<(int)sizeof(c.input);
+    return c.inputpos < static_cast<int>(sizeof(c.input));
 }
 
 ENetSocketSet readset, writeset;
@@ -684,9 +692,18 @@ void checkclients()
     for(int i = 0; i < clients.length(); i++)
     {
         client &c = *clients[i];
-        if(c.authreqs.length()) purgeauths(c);
-        if(c.message || c.output.length()) ENET_SOCKETSET_ADD(writeset, c.socket);
-        else ENET_SOCKETSET_ADD(readset, c.socket);
+        if(c.authreqs.length())
+        {
+            purgeauths(c);
+        }
+        if(c.message || c.output.length())
+        {
+            ENET_SOCKETSET_ADD(writeset, c.socket);
+        }
+        else
+        {
+            ENET_SOCKETSET_ADD(readset, c.socket);
+        }
         maxsock = max(maxsock, c.socket);
     }
     if(enet_socketset_select(maxsock, &readset, &writeset, 1000)<=0)
