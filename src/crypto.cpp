@@ -1071,15 +1071,6 @@ const ecjacobian ecjacobian::base(
 #error Unsupported GF
 #endif
 
-void calcpubkey(gfint privkey, vector<char> &pubstr)
-{
-    ecjacobian c(ecjacobian::base);
-    c.mul(privkey);
-    c.normalize();
-    c.print(pubstr);
-    pubstr.add('\0');
-}
-
 void *parsepubkey(const char *pubstr)
 {
     ecjacobian *pubkey = new ecjacobian;
