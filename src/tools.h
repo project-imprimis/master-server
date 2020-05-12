@@ -137,40 +137,6 @@ struct databuf
     template<class U>
     databuf(T *buf, U maxlen) : buf(buf), len(0), maxlen((int)maxlen), flags(0) {}
 
-    void reset()
-    {
-        len = 0;
-        flags = 0;
-    }
-
-    void reset(T *buf_, int maxlen_)
-    {
-        reset();
-        buf = buf_;
-        maxlen = maxlen_;
-    }
-
-    const T &get()
-    {
-        static const T overreadval = 0;
-        if(len<maxlen) return buf[len++];
-        flags |= OVERREAD;
-        return overreadval;
-    }
-
-    databuf subbuf(int sz)
-    {
-        sz = clamp(sz, 0, maxlen-len);
-        len += sz;
-        return databuf(&buf[len-sz], sz);
-    }
-
-    T *pad(int numvals)
-    {
-        T *vals = &buf[len];
-        len += min(numvals, maxlen-len);
-        return vals;
-    }
 
     void put(const T &val)
     {
@@ -189,102 +155,11 @@ struct databuf
         len += numvals;
     }
 
-    int get(T *vals, int numvals)
-    {
-        if(maxlen - len < numvals)
-        {
-            numvals = maxlen - len;
-            flags |= OVERREAD;
-        }
-        memcpy(vals, (void *)&buf[len], numvals*sizeof(T));
-        len += numvals;
-        return numvals;
-    }
-
-    void offset(int n)
-    {
-        n = min(n, maxlen);
-        buf += n;
-        maxlen -= n;
-        len = max(len-n, 0);
-    }
-
-    T *getbuf() const { return buf; }
-    bool empty() const { return len==0; }
     int length() const { return len; }
-    int remaining() const { return maxlen-len; }
-    bool overread() const { return (flags&OVERREAD)!=0; }
-    bool overwrote() const { return (flags&OVERWROTE)!=0; }
-
-    bool check(int n) { return remaining() >= n; }
-
-    void forceoverread()
-    {
-        len = maxlen;
-        flags |= OVERREAD;
-    }
 };
 
 typedef databuf<char> charbuf;
 typedef databuf<uchar> ucharbuf;
-
-struct packetbuf : ucharbuf
-{
-    ENetPacket *packet;
-    int growth;
-
-    packetbuf(ENetPacket *packet) : ucharbuf(packet->data, packet->dataLength), packet(packet), growth(0) {}
-    packetbuf(int growth, int pflags = 0) : growth(growth)
-    {
-        packet = enet_packet_create(NULL, growth, pflags);
-        buf = (uchar *)packet->data;
-        maxlen = packet->dataLength;
-    }
-    ~packetbuf() { cleanup(); }
-
-    void reliable() { packet->flags |= ENET_PACKET_FLAG_RELIABLE; }
-
-    void resize(int n)
-    {
-        enet_packet_resize(packet, n);
-        buf = (uchar *)packet->data;
-        maxlen = packet->dataLength;
-    }
-
-    void checkspace(int n)
-    {
-        if(len + n > maxlen && packet && growth > 0) resize(max(len + n, maxlen + growth));
-    }
-
-    ucharbuf subbuf(int sz)
-    {
-        checkspace(sz);
-        return ucharbuf::subbuf(sz);
-    }
-
-    void put(const uchar &val)
-    {
-        checkspace(1);
-        ucharbuf::put(val);
-    }
-
-    void put(const uchar *vals, int numvals)
-    {
-        checkspace(numvals);
-        ucharbuf::put(vals, numvals);
-    }
-
-    ENetPacket *finalize()
-    {
-        resize(len);
-        return packet;
-    }
-
-    void cleanup()
-    {
-        if(growth > 0 && packet && !packet->referenceCount) { enet_packet_destroy(packet); packet = NULL; buf = NULL; len = maxlen = 0; }
-    }
-};
 
 template<class T> struct isclass
 {
@@ -422,7 +297,7 @@ template <class T> struct vector
             if(buf[i] == o)
             {
                 int dst = i;
-                for(int j = i+1; j < ulen; j++) 
+                for(int j = i+1; j < ulen; j++)
                 {
                     if(!(buf[j] == o))
                     {
@@ -433,32 +308,6 @@ template <class T> struct vector
                 break;
             }
         }
-    }
-
-    T &insert(int i, const T &e)
-    {
-        add(T());
-        for(int p = ulen-1; p>i; p--) buf[p] = buf[p-1];
-        buf[i] = e;
-        return buf[i];
-    }
-
-    T *insert(int i, const T *e, int n)
-    {
-        if(alen-ulen < n) growbuf(ulen+n);
-        for(int j = 0; j < n; ++j)
-        {
-            add(T());
-        }
-        for(int p = ulen-1; p>=i+n; p--)
-        {
-            buf[p] = buf[p-n];
-        }
-        for(int j = 0; j < n; ++j)
-        {
-            buf[i+j] = e[j];
-        }
-        return &buf[i];
     }
 };
 
