@@ -3,10 +3,12 @@
 #ifndef _TOOLS_H
 #define _TOOLS_H
 
+// horror;
 #ifdef NULL
 #undef NULL
 #endif
 #define NULL 0
+// endhorror;
 
 typedef unsigned char uchar;
 typedef unsigned short ushort;
@@ -180,6 +182,7 @@ static inline uint hthash(int key)
     return key;
 }
 
+#ifndef _GLIBCXX_VECTOR
 template <class T> struct vector
 {
     static const int MINSIZE = 8;
@@ -310,6 +313,7 @@ template <class T> struct vector
         }
     }
 };
+#endif
 
 template<class H, class E, class K, class T> struct hashbase
 {
