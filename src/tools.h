@@ -41,6 +41,37 @@ typedef unsigned long long int ullong;
 #ifdef min
 #undef min
 #endif
+
+/* BEGIN NEW IMPRIMIS TOOLING */
+
+/*
+C++20 shims
+*/
+namespace std20
+{
+    /*
+    Format a string, C-style, without printing it out. Returns an std::string.
+    Shim for C++20's std::format
+    */
+    template<typename... Args>
+    std::string format(const std::string &format, Args... args)
+    {
+        size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1;
+
+        if(size <= 0)
+        {
+            throw std::runtime_error("Formatting error.");
+        }
+
+        std::unique_ptr<char[]> buf(new char[size]);
+        snprintf(buf.get(), size, format.c_str(), args...);
+
+        return std::string(buf.get(), buf.get() + size - 1);
+    }
+}
+
+/* END NEW IMPRIMIS TOOLING */
+
 template<class T>
 static inline T max(T a, T b)
 {
