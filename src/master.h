@@ -29,25 +29,10 @@
 
 struct user
 {
-    char *name;
-    void *pubkey; // Replace, only store private key, public key should be generated on the fly as a 128-bit TOTP string
+    std::string name;
+    std::string privkey;
 
-    user(char *name, char *pubkey);
-    user(const user &_user);
-
-    ~user();
-
-    // Add a user and add them to the list of users, replaces adduser()
-    static void create(char *name, char *pubkey);
-
-    // Destroys a user based on their username
-    static void destroy(char *name);
-
-    // Renames or changes a user's key
-    static bool update(char *name, char* newname, void *newpubkey);
-
-    // Clears the entire user map, replaces clearusers()
-    static void clear();
+    user(std::string name, std::string privkey) : name(name), privkey(privkey) {}
 };
 
 struct ban
@@ -59,17 +44,12 @@ struct ban
         GLOBAL
     };
 
+    type bantype;
     ipmask ipaddr;
-    char *reason;
+    std::string reason;
     time_t expiry;
 
-    ban(ipmask ipaddr, char *reason = "", time_t expiry = NULL);
-
-    ~ban();
-
-    static void create(type bantype, ipmask ipaddr, char *reason = "", time_t expiry = NULL);
-
-    static void destroy(type bantype, ipmask ipaddr);
+    ban(ipmask ipaddr, std::string reason = "", time_t expiry = NULL);
 };
 
 struct authreq
@@ -79,91 +59,89 @@ struct authreq
     void *answer;
 };
 
-struct msgbuffer
+typedef class buffer_node: public std::string
 {
-    std::vector<msgbuffer *> &owner;
-    std::vector<char> buf;
-
-    int refs;
-
-    msgbuffer(std::vector<msgbuffer *> &owner) : owner(owner), refs(0) {}
-
     /*
-    Get the current contents of the msgbuffer vector
+    Reference to the parents of the msgbuffer object
     */
-    const char *get();
+    std::vector<buffer_node *> &owner;
 
-    /*
-    Get the current size of the msgbuffer vector
-    */
-    int size();
+public:
 
-    /*
-    Purge the entire msgbuffer vector
-    */
-    void purge();
+    template<class... Ts>
+    buffer_node(std::vector<buffer_node *> &owner, Ts&&... args) : std::string(std::forward<Ts>(args)...), owner(owner) {}
 
-    /*
-    Verify equality between two msgbuffer objects
-    */
-    bool equals(const msgbuffer &m) const;
-
-    /*
-    Deprecate? Comparison should be in the caller function
-    */
-    bool endswith(const msgbuffer &m) const;
-
-    /*
-    Concatenate another msgbuffer object with this one
-    */
-    void concat(const msgbuffer &m);
-
-
-    /* DEPRECATED */
-
-    // Use get() instead
-    const char *getbuf();
-
-    // Use size() instead
-    int length();
-};
+    template<class T>
+    buffer_node(std::vector<buffer_node *> &owner, std::initializer_list<T> args) : std::string(args), owner(owner) {}
+} msgbuffer;
 
 struct gameserver
 {
     ENetAddress address;
     std::string ipaddr;
-    int port,
-        numpings;
-    enet_uint32 lastping,
-        lastpong;
+    int port;
+    int numpings;
+    enet_uint32 lastping;
+    enet_uint32 lastpong;
 };
 
 struct client
 {
     ENetAddress address;
     ENetSocket socket;
+
+    std::string _input;
     char input[INPUT_LIMIT];
     msgbuffer *message;
-    std::vector<char> output;
-    int inputpos,
-        outputpos;
+    std::string output;
+    size_t inputpos;
+    size_t outputpos;
     enet_uint32 connecttime,
         lastinput,
         lastauth;
     int servport;
     std::vector<authreq> authreqs;
-    bool shouldpurge;
-    bool registeredserver;
+
+    /* Flag client for destruction */
+    bool shoulddestroy;
+
+    /* Is the client a registered server? */
+    bool isregisteredserver;
 
     client();
+
+    ~client();
+
+    /*
+    Read client input, return success value.
+    Replaces ``checkclientinput``
+    */
+    bool readinput();
+
+    /*
+    Sends a network message to the client object.
+    Supports C-style formatting
+    Replaces ``output`` and ``outputf``
+    */
+    template<typename... Args>
+    void sendnetmsg(const char *format, Args... args)
+    {
+        output += std20::format(format, args);
+    }
+
+    /*
+    Deletes a client index and removes it from the list.
+    Replaces ``purgeclient``.
+    */
+    static void destroy(int n);
 
 };
 
 namespace master
 {
     std::ofstream logfile;
-    ENetSocket serversocket = ENET_SOCKET_NULL,
-        pingsocket = ENET_SOCKET_NULL;
+    ENetSocket serversocket = ENET_SOCKET_NULL;
+    ENetSocket pingsocket = ENET_SOCKET_NULL;
     ENetSocketSet readset,
         writeset;
     time_t starttime;
@@ -174,13 +152,25 @@ namespace master
         globalbans;
 
     std::unordered_map<ipmask, ban> bans[3]; // One for each ban::type
-    std::unordered_map<char *, user> users;
+    std::unordered_map<std::string, user> users;
     std::vector<client *> clients;
     std::vector<gameserver *> gameservers;
     std::vector<msgbuffer *> gameserverlists,
         gbanlists;
 
     bool updateserverlist = true;
+
+    /*
+    Sets up the ping socket
+    Replaces ``configpingsocket``
+    */
+    bool configpingsocket(ENetAddress *address);
+
+    /*
+    Initialize the master server
+    Replaces ``setupserver``
+    */
+    void init(int port, const char *ip = nullptr);
 };
 
 #endif

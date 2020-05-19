@@ -3,6 +3,9 @@
 #ifndef _TOOLS_H
 #define _TOOLS_H
 
+#include <memory>
+#include <cstring>
+
 // horror;
 #ifdef NULL
 #undef NULL
@@ -67,6 +70,20 @@ namespace std20
         snprintf(buf.get(), size, format.c_str(), args...);
 
         return std::string(buf.get(), buf.get() + size - 1);
+    }
+}
+
+namespace tools
+{
+    /*
+    The classic C memchr() method, adapted to use std::strings
+    Excellent for searching short strings. For longer strings,
+    use the in-built std::find() method.
+    */
+    void *str_memchr(std::string s, int c, size_t n = NULL)
+    {
+        if(n == NULL) n = s.length();
+        return (char *)memchr(s.c_str(), c, n);
     }
 }
 

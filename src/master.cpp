@@ -6,290 +6,182 @@
 #define __FD_SETSIZE 4096
 #endif
 
+#include "master.h"
+
 #include <fstream>
 #include <vector>
 #include <unordered_map>
-#include "master.h"
 #include "cube.h"
+#include "io.h"
 #include <signal.h>
 #include <enet/time.h>
 
-struct user
+client::client() : message(nullptr), inputpos(0), outputpos(0), servport(-1), lastauth(0), shoulddestroy(false), isregisteredserver(false) {}
+
+client::~client()
 {
-    char *name;
-    void *pubkey;
+    enet_socket_destroy(socket);
+}
 
-    user(char *name, char *pubkey) : name(name), pubkey(pubkey) {}
-    user(const user &_user)
+bool client::readinput()
+{
+    // No new input
+    if(inputpos < 0) return true;
+
+    // Count number of bytes until \n is found
+    // Returns a memory pointer to the first occurence of \n
+    char *end = (char *)memchr(input, '\n', inputpos);
+
+    // Until the end pointer is nullptr
+    // This allows us to read multiple commands in one go
+    while(end)
     {
-        name = _user.name;
-        pubkey = _user.pubkey;
-    }
+        // Replace \n with \0 and then increment pointer by 1
+        *end++ = '\0';
+        // Set last input to current time
+        lastinput = master::servtime;
+        // Port of the server currently registering
+        int port;
+        // Auth ID, not sure what its purpose is
+        uint id;
+        // Document me
+        std::string user;
+        // Document me
+        std::string val;
 
-    ~user() {}
-
-    static void create(char *name, char *pubkey)
-    {
-        master::users.try_emplace(name, name, pubkey);
-    }
-
-    static void destroy(char *name)
-    {
-        master::users.erase(name);
-    }
-
-    static bool update(char *name, char* newname, void *newpubkey)
-    {
-        auto result = master::users.find(name);
-
-        if(result == master::users.end())
-        { // Not found
-            return false;
-        }
-        else
+        // Check that first 4 characters match "list" and that there's nothing afterwards
+        //if(!strncmp(input, "list", 4) && (!input[4] || input[4] == '\n' || input[4] == '\r'))
+        if(!_input.rfind("list", 0) && (!_input[4] || input[4] == '\n' || input[4] == '\r'))
         {
-            if(newname != NULL)
+            // Generate a server list
+            genserverlist();
+
+            // Do nothing if no gameservers are present or if there is a... new message?
+            if(master::gameserverlists.empty() || message)
             {
-                auto newentry = master::users.extract(name);
-                newentry.key() = newname;
-                master::users.insert(move(newentry));
-                master::users[name].name = newname;
+                return false;
             }
-            if(newpubkey != NULL)
-            {
-                master::users[name].pubkey = newpubkey;
-            }
+            // Get the last gameserver on the list and attribute it as the message.
+            message = master::gameserverlists.back();
+
+            // Clear (delete, wipe) the output string
+            output.clear();
+            // Reset the output position to 0
+            outputpos = 0;
+            // Mark client for deletion and disconnection
+            shoulddestroy = true;
+
+            // Return successfully
             return true;
         }
-        
-    }
-
-    static void clear()
-    {
-        master::users.clear();
-    }
-};
-
-struct ban
-{
-    enum type
-    {
-        CLIENT = 0,
-        SERVER = 1,
-        GLOBAL = 2
-    };
-
-    type bantype;
-    ipmask ipaddr;
-    char *reason;
-    time_t expiry;
-
-    ban(ipmask ipaddr, char *reason = "", time_t expiry = NULL) : ipaddr(ipaddr), reason(reason), expiry(expiry) {}
-
-    ~ban() {}
-
-    static void create(type bantype, ipmask ipaddr, char *reason = "", time_t expiry = NULL)
-    {
-        master::bans[bantype].try_emplace(ipaddr, ipaddr, reason, expiry);
-    }
-
-    static void destroy(type bantype, ipmask ipaddr)
-    {
-        master::bans[bantype].erase(ipaddr);
-    }
-
-    static void clear(type bantype)
-    {
-        master::bans[bantype].clear();
-    }
-};
-
-struct authreq
-{
-    enet_uint32 reqtime;
-    uint id;
-    void *answer;
-};
-
-struct gameserver
-{
-    ENetAddress address;
-    std::string ipaddr;
-    int port,
-        numpings;
-    enet_uint32 lastping,
-        lastpong;
-};
-
-struct msgbuffer
-{
-    std::vector<msgbuffer *> &owner; // Probably the client or server who submitted the message?
-    std::vector<char> buf;
-
-    int refs; // Document me
-
-    msgbuffer(std::vector<msgbuffer *> &owner) : owner(owner), refs(0) {}
-
-    const char *get()
-    {
-        return buf.data();
-    }
-
-    int size()
-    {
-        return buf.size();
-    }
-
-    const char *getbuf() // Deprecated, use get()
-    {
-        return get();
-    }
-
-    int length() // Deprecated, use size()
-    {
-        return size();
-    }
-
-    void purge();
-
-    bool equals(const msgbuffer &m) const
-    {
-        return buf.size() == m.buf.size()
-            && !memcmp(buf.data(), m.buf.data(), buf.size());
-    }
-
-    bool endswith(const msgbuffer &m) const // Deprecate? Comparison should be in the caller function
-    {
-        return buf.size() >= m.buf.size()
-            && !memcmp(&buf[buf.size() - m.buf.size()], m.buf.data(), m.buf.size());
-    }
-
-    void concat(const msgbuffer &m)
-    {
-        // Verify that buf is not already null-terminated.
-        // Otherwise, remove nul character
-        if(buf.size() && buf.back() == '\0')
+        else if(sscanf(input, "regserv %d", &port) == 1)
         {
-            buf.pop_back();
+            if(checkban(servbans, address.host))
+            {
+                return false;
+            }
+            if(port < 0 || port > 0xFFFF || (servport >= 0 && port != servport))
+            {
+                outputf(c, "failreg invalid port\n");
+            }
+            else
+            {
+                servport = port;
+                master::addgameserver(this);
+            }
         }
-  
-      buf.insert(buf.end(), m.buf.begin(), m.buf.end()); // Performance concern?
+        inputpos = &input[inputpos] - end;
+        memmove(input, end, inputpos);
+
+        end = (char *)memchr(input, '\n', inputpos);
     }
-};
 
-std::vector<msgbuffer *> gameserverlists, gbanlists;
-bool updateserverlist = true;
-
-struct client
-{
-    ENetAddress address;
-    ENetSocket socket;
-    char input[INPUT_LIMIT];
-    msgbuffer *message;
-    std::vector<char> output;
-    int inputpos,
-        outputpos;
-    enet_uint32 connecttime,
-        lastinput,
-        lastauth;
-    int servport;
-    std::vector<authreq> authreqs;
-    bool shouldpurge;
-    bool registeredserver;
-
-    client() : message(NULL), inputpos(0), outputpos(0), servport(-1), lastauth(0), shouldpurge(false), registeredserver(false) {}
-};
-
-void purgeclient(int n)
-{
-    client &c = *clients[n];
-    if(c.message)
-    {
-        c.message->purge();
-    }
-    enet_socket_destroy(c.socket);
-    delete clients[n];
-    clients.remove(n);
+    return inputpos < static_cast<int>(sizeof(input));
 }
 
-void output(client &c, const char *msg, int len = 0)
+static void client::destroy(int n)
 {
-    if(!len)
-    {
-        len = strlen(msg);
-    }
-    c.output.put(msg, len);
+    delete master::clients[n];
+    master::clients.erase(n);
 }
 
-void outputf(client &c, const char *fmt, ...)
+bool master::configpingsocket(ENetAddress *address)
 {
-    DEFV_FORMAT_STRING(msg, fmt, fmt);
-
-    output(c, msg);
-}
-
-bool setuppingsocket(ENetAddress *address)
-{
-    if(master::pingsocket != ENET_SOCKET_NULL)
+    // Ping socket is already set up
+    if(pingsocket != ENET_SOCKET_NULL)
     {
         return true;
     }
-    master::pingsocket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
-    if(master::pingsocket == ENET_SOCKET_NULL)
+
+    pingsocket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
+
+    // Socket is STILL not set up
+    if(pingsocket == ENET_SOCKET_NULL)
     {
         return false;
     }
-    if(address && enet_socket_bind(master::pingsocket, address) < 0)
+
+    // Couldn't bind anything to the socket
+    if(address && enet_socket_bind(pingsocket, address) < 0)
     {
         return false;
     }
-    enet_socket_set_option(master::pingsocket, ENET_SOCKOPT_NONBLOCK, 1);
+
+    enet_socket_set_option(pingsocket, ENET_SOCKOPT_NONBLOCK, 1);
+
     return true;
 }
 
-void setupserver(int port, const char *ip = NULL)
+void master::init(int port, const char *ip = nullptr)
 {
     ENetAddress address;
     address.host = ENET_HOST_ANY;
     address.port = port;
 
-    if(ip)
+    if(ip && enet_address_set_host(&address, ip) < 0)
     {
-        if(enet_address_set_host(&address, ip) < 0)
-        {
-            io::fatal("failed to resolve server address: %s", ip);
-        }
+        io::fatal("Failed to resolve server address: %s", ip);
     }
+
     serversocket = enet_socket_create(ENET_SOCKET_TYPE_STREAM);
+    
     if(serversocket==ENET_SOCKET_NULL)
     {
-        fatal("failed to bind socket: null socket error");
+        io::fatal("Failed to bind socket: null socket error");
     }
+
     if(enet_socket_set_option(serversocket, ENET_SOCKOPT_REUSEADDR, 1) < 0)
     {
-        fatal("failed to bind socket: reuseaddr error");
+        io::fatal("Failed to bind socket: reuseaddr error");
     }
-    if(enet_socket_bind(serversocket, &address) < 0 ||
-       enet_socket_listen(serversocket, -1) < 0)
+
+    if(enet_socket_bind(serversocket, &address) < 0
+        || enet_socket_listen(serversocket, -1) < 0)
     {
-        fatal("failed to bind socket");
+        io::fatal("Failed to bind socket");
     }
+
     if(enet_socket_set_option(serversocket, ENET_SOCKOPT_NONBLOCK, 1)<0)
     {
-        fatal("failed to make server socket non-blocking");
+        io::fatal("Failed to make server socket non-blocking");
     }
-    if(!setuppingsocket(&address))
+
+    if(!configpingsocket(&address))
     {
-        fatal("failed to create ping socket");
+        io::fatal("Failed to create ping socket");
     }
+
     enet_time_set(0);
     starttime = time(NULL);
     char *ct = ctime(&starttime);
+
+    // Add terminating null character if given a newline instead
     if(strchr(ct, '\n'))
     {
         *strchr(ct, '\n') = '\0';
     }
-    conoutf("*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
+
+    io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
 }
 
 void genserverlist()
@@ -298,11 +190,11 @@ void genserverlist()
     {
         return;
     }
-    while(gameserverlists.length() && gameserverlists.last()->refs<=0)
+    while(master::gameserverlists.length() && master::gameserverlists.last()->refs<=0)
     {
-        delete gameserverlists.pop();
+        delete master::gameserverlists.pop();
     }
-    msgbuffer *l = new msgbuffer(gameserverlists);
+    msgbuffer *l = new msgbuffer(master::gameserverlists);
     for(int i = 0; i < gameservers.length(); i++)
     {
         gameserver &s = *gameservers[i];
@@ -314,7 +206,7 @@ void genserverlist()
         l->buf.put(cmd, strlen(cmd));
     }
     l->buf.add('\0');
-    gameserverlists.add(l);
+    master::gameserverlists.add(l);
     updateserverlist = false;
 }
 
@@ -360,7 +252,7 @@ void gengbanlist()
     }
 }
 
-void addgameserver(client &c)
+void master::addgameserver(client &c)
 {
     if(gameservers.length() >= SERVER_LIMIT)
     {
@@ -627,66 +519,6 @@ void confauth(client &c, uint id, const char *val)
         }
     }
     outputf(c, "failauth %u\n", id);
-}
-
-bool checkclientinput(client &c)
-{
-    if(c.inputpos<0)
-    {
-        return true;
-    }
-    char *end = (char *)memchr(c.input, '\n', c.inputpos);
-    while(end)
-    {
-        *end++ = '\0';
-        c.lastinput = servtime;
-        int port;
-        uint id;
-        string user, val;
-        if(!strncmp(c.input, "list", 4) && (!c.input[4] || c.input[4] == '\n' || c.input[4] == '\r'))
-        {
-            genserverlist();
-            if(gameserverlists.empty() || c.message)
-            {
-                return false;
-            }
-            c.message = gameserverlists.last();
-            c.message->refs++;
-            c.output.setsize(0);
-            c.outputpos = 0;
-            c.shouldpurge = true;
-            return true;
-        }
-        else if(sscanf(c.input, "regserv %d", &port) == 1)
-        {
-            if(checkban(servbans, c.address.host))
-            {
-                return false;
-            }
-            if(port < 0 || port > 0xFFFF || (c.servport >= 0 && port != c.servport))
-            {
-                outputf(c, "failreg invalid port\n");
-            }
-            else
-            {
-                c.servport = port;
-                addgameserver(c);
-            }
-        }
-        else if(sscanf(c.input, "reqauth %u %100s", &id, user) == 2)
-        {
-            reqauth(c, id, user);
-        }
-        else if(sscanf(c.input, "confauth %u %100s", &id, val) == 2)
-        {
-            confauth(c, id, val);
-        }
-        c.inputpos = &c.input[c.inputpos] - end;
-        memmove(c.input, end, c.inputpos);
-
-        end = (char *)memchr(c.input, '\n', c.inputpos);
-    }
-    return c.inputpos < static_cast<int>(sizeof(c.input));
 }
 
 ENetSocketSet readset, writeset;

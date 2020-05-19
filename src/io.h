@@ -62,7 +62,7 @@ namespace io
         exit(EXIT_FAILURE);
     }
 
-    bool init();
+    bool init(char *homedir);
 }
 
 #endif
