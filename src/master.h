@@ -2,11 +2,13 @@
 #define _MASTER_H
 
 #include <fstream>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include "tools.h"
 #include <enet/enet.h>
-#include <enet/time.h>
+#include <enet/time.h> // Replace with ctime?
+#include <ctime>
 
 #define INPUT_LIMIT 4096            // Document
 #define OUTPUT_LIMIT (64*1024)      // Document
@@ -32,7 +34,7 @@ struct user
     std::string name;
     std::string privkey;
 
-    user(std::string name, std::string privkey) : name(name), privkey(privkey) {}
+    user(std::string name, std::string privkey) : name(std::move(name)), privkey(std::move(privkey)) {}
 };
 
 struct ban
@@ -87,17 +89,17 @@ struct gameserver
 
 struct client
 {
-    ENetAddress address;
-    ENetSocket socket;
+    ENetAddress address{};
+    ENetSocket socket{};
 
     std::string _input;
-    char input[INPUT_LIMIT];
+    char input[INPUT_LIMIT]{};
     msgbuffer *message;
     std::string output;
     size_t inputpos;
     size_t outputpos;
-    enet_uint32 connecttime,
-        lastinput,
+    enet_uint32 connecttime{},
+        lastinput{},
         lastauth;
     int servport;
     std::vector<authreq> authreqs;
@@ -112,27 +114,33 @@ struct client
 
     ~client();
 
-    /*
-    Read client input, return success value.
-    Replaces ``checkclientinput``
-    */
+    /**
+     * Read client input, return success value.
+     *
+     * @return true, false on error
+     * @replaces checkclientinput
+     */
     bool readinput();
 
-    /*
-    Sends a network message to the client object.
-    Supports C-style formatting
-    Replaces ``output`` and ``outputf``
-    */
+    /**
+     * Sends a network message to the client object.
+     * Supports C-style formatting
+     * @param format    C string to format
+     * @param args      List of replacements to perform
+     * @replaces output
+     * @replaces outputf
+     */
     template<typename... Args>
     void sendnetmsg(const char *format, Args... args)
     {
-        output += std20::format(format, args);
+        output += std20::format(format, args...);
     }
 
-    /*
-    Deletes a client index and removes it from the list.
-    Replaces ``purgeclient``.
-    */
+    /**
+     * Delete a client index and remove it from the list.
+     * @return void
+     * @replaces purgeclient
+     */
     static void destroy(int n);
 
 };
@@ -151,7 +159,11 @@ namespace master
         serverbans,
         globalbans;
 
-    std::unordered_map<ipmask, ban> bans[3]; // One for each ban::type
+    ENetSocketSet readset, writeset;
+
+    std::unordered_map<std::string, std::unordered_map<ipmask, ban>> bans = {
+            {"user", }
+    };
     std::unordered_map<std::string, user> users;
     std::vector<client *> clients;
     std::vector<gameserver *> gameservers;
@@ -166,11 +178,16 @@ namespace master
     */
     bool configpingsocket(ENetAddress *address);
 
+    /**
+     * Adds a client as a game server
+     */
+    void addgameserver(client &c);
+
     /*
     Initialize the master server
     Replaces ``setupserver``
     */
-    void init(int port, const char *ip = nullptr);
+    void init(int port, const char *ip);
 };
 
 #endif

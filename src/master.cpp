@@ -13,10 +13,18 @@
 #include <unordered_map>
 #include "cube.h"
 #include "io.h"
-#include <signal.h>
+#include <csignal>
+#include <ctime>
 #include <enet/time.h>
 
-client::client() : message(nullptr), inputpos(0), outputpos(0), servport(-1), lastauth(0), shoulddestroy(false), isregisteredserver(false) {}
+client::client() :
+    message(nullptr),
+    inputpos(0),
+    outputpos(0),
+    servport(-1),
+    lastauth(0),
+    shoulddestroy(false),
+    isregisteredserver(false) {}
 
 client::~client()
 {
@@ -29,7 +37,7 @@ bool client::readinput()
     if(inputpos < 0) return true;
 
     // Count number of bytes until \n is found
-    // Returns a memory pointer to the first occurence of \n
+    // Returns a memory pointer to the first occurrence of \n
     char *end = (char *)memchr(input, '\n', inputpos);
 
     // Until the end pointer is nullptr
@@ -48,13 +56,13 @@ bool client::readinput()
         std::string user;
         // Document me
         std::string val;
+        // Parsed parameters for given input
+        auto command = tools::parsecmd(_input);
 
-        // Check that first 4 characters match "list" and that there's nothing afterwards
-        //if(!strncmp(input, "list", 4) && (!input[4] || input[4] == '\n' || input[4] == '\r'))
-        if(!_input.rfind("list", 0) && (!_input[4] || input[4] == '\n' || input[4] == '\r'))
+        if(command.size() == 1 && command[0] == "list")
         {
             // Generate a server list
-            genserverlist();
+            //genserverlist(); // Remap
 
             // Do nothing if no gameservers are present or if there is a... new message?
             if(master::gameserverlists.empty() || message)
@@ -74,20 +82,32 @@ bool client::readinput()
             // Return successfully
             return true;
         }
-        else if(sscanf(input, "regserv %d", &port) == 1)
+        else if(command.size() == 2 && command[0] == "regserv")
         {
+            try
+            {
+                port = std::stoi(command[1]);
+            }
+            catch(const std::invalid_argument& e)
+            {
+                return false; // Couldn't get an int from the parameter
+            }
+
+            /*
             if(checkban(servbans, address.host))
             {
                 return false;
             }
+            */
+
             if(port < 0 || port > 0xFFFF || (servport >= 0 && port != servport))
             {
-                outputf(c, "failreg invalid port\n");
+                sendnetmsg("failreg invalid port\n");
             }
             else
             {
                 servport = port;
-                master::addgameserver(this);
+                //master::addgameserver(this);
             }
         }
         inputpos = &input[inputpos] - end;
@@ -96,13 +116,14 @@ bool client::readinput()
         end = (char *)memchr(input, '\n', inputpos);
     }
 
+    // Make sure we didn't go over, otherwise return failure
     return inputpos < static_cast<int>(sizeof(input));
 }
 
-static void client::destroy(int n)
+void client::destroy(int n)
 {
-    delete master::clients[n];
-    master::clients.erase(n);
+    delete master::clients[n]; // Is this necessary?
+    master::clients.erase(master::clients.begin() + n);
 }
 
 bool master::configpingsocket(ENetAddress *address)
@@ -184,6 +205,7 @@ void master::init(int port, const char *ip = nullptr)
     io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
 }
 
+/*
 void genserverlist()
 {
     if(!updateserverlist)
@@ -209,7 +231,9 @@ void genserverlist()
     master::gameserverlists.add(l);
     updateserverlist = false;
 }
+ */
 
+/*
 void gengbanlist()
 {
     msgbuffer *l = new msgbuffer(gbanlists);
@@ -251,22 +275,25 @@ void gengbanlist()
         }
     }
 }
+*/
 
 void master::addgameserver(client &c)
 {
-    if(gameservers.length() >= SERVER_LIMIT)
+    int dups = 0;
+    std::string hostname;
+
+    if(gameservers.size() >= SERVER_LIMIT)
     {
         return;
     }
-    int dups = 0;
-    for(int i = 0; i < gameservers.length(); i++)
+    for(auto & i : gameservers)
     {
-        gameserver &s = *gameservers[i];
+        gameserver &s = *i;
         if(s.address.host != c.address.host)
         {
             continue;
         }
-        ++dups; 
+        ++dups;
         if(s.port == c.servport)
         {
             s.lastping = 0;
@@ -276,19 +303,20 @@ void master::addgameserver(client &c)
     }
     if(dups >= SERVER_DUP_LIMIT)
     {
-        outputf(c, "failreg too many servers on ip\n");
+        c.sendnetmsg("failreg too many servers on ip\n");
         return;
     }
-    string hostname;
-    if(enet_address_get_host_ip(&c.address, hostname, sizeof(hostname)) < 0)
+    if(enet_address_get_host_ip(&c.address, const_cast<char *>(hostname.c_str()), hostname.size()) < 0)
     {
-        outputf(c, "failreg failed resolving ip\n");
+        c.sendnetmsg("failreg failed resolving ip\n");
         return;
     }
-    gameserver &s = *gameservers.add(new gameserver);
+
+    gameservers.push_back(new gameserver);
+    gameserver &s = *gameservers.back();
     s.address.host = c.address.host;
     s.address.port = c.servport;
-    copystring(s.ip, hostname);
+    s.ipaddr = hostname;
     s.port = c.servport;
     s.numpings = 0;
     s.lastping = s.lastpong = 0;
@@ -296,23 +324,23 @@ void master::addgameserver(client &c)
 
 client *findclient(gameserver &s)
 {
-    for(int i = 0; i < clients.length(); i++)
+    for(auto & i : master::clients)
     {
-        client &c = *clients[i];
+        client &c = *i;
         if(s.address.host == c.address.host && s.port == c.servport)
         {
             return &c;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
-void servermessage(gameserver &s, const char *msg)
+void servermessage(gameserver &server, const char *msg)
 {
-    client *c = findclient(s);
-    if(c)
+    client *_client = findclient(server);
+    if(_client)
     {
-        outputf(*c, msg);
+        _client->sendnetmsg(msg);
     }
 }
 
@@ -325,14 +353,14 @@ void checkserverpongs()
     {
         buf.data = pong;
         buf.dataLength = sizeof(pong);
-        int len = enet_socket_receive(pingsocket, &addr, &buf, 1);
+        int len = enet_socket_receive(master::pingsocket, &addr, &buf, 1);
         if(len <= 0)
         {
             break;
         }
-        for(int i = 0; i < gameservers.length(); i++)
+        for(auto & i : master::gameservers)
         {
-            gameserver &s = *gameservers[i];
+            gameserver &s = *i;
             if(s.address.host == addr.host && s.address.port == addr.port)
             {
                 if(s.lastping && (!s.lastpong || ENET_TIME_GREATER(s.lastping, s.lastpong)))
@@ -340,20 +368,22 @@ void checkserverpongs()
                     client *c = findclient(s);
                     if(c)
                     {
-                        c->registeredserver = true;
-                        outputf(*c, "succreg\n");
+                        c->isregisteredserver = true;
+                        c->sendnetmsg("succreg\n");
+
+                        /*
                         if(!c->message && gbanlists.length())
                         {
                             c->message = gbanlists.last();
                             c->message->refs++;
-                        }
+                        }*/
                     }
                 }
                 if(!s.lastpong)
                 {
-                    updateserverlist = true;
+                    master::updateserverlist = true;
                 }
-                s.lastpong = servtime ? servtime : 1;
+                s.lastpong = master::servtime ? master::servtime : 1;
                 break;
             }
         }
@@ -361,38 +391,38 @@ void checkserverpongs()
 }
 
 void bangameservers()
-{
-    for(int i = gameservers.length(); --i >=0;) //note reverse iteration
+{ /* // stub
+    for(int i = master::gameservers.size(); --i >=0;) //note reverse iteration
     {
         if(checkban(servbans, gameservers[i]->address.host))
         {
             delete gameservers.remove(i);
             updateserverlist = true;
         }
-    }
+    }*/
 }
 
 void checkgameservers()
 {
     ENetBuffer buf;
-    for(int i = 0; i < gameservers.length(); i++)
+    for(int i = 0; i < master::gameservers.size(); i++)
     {
-        gameserver &s = *gameservers[i];
+        gameserver &s = *master::gameservers[i];
         if(s.lastping && s.lastpong && ENET_TIME_LESS_EQUAL(s.lastping, s.lastpong))
         {
-            if(ENET_TIME_DIFFERENCE(servtime, s.lastpong) > KEEPALIVE_TIME)
+            if(ENET_TIME_DIFFERENCE(master::servtime, s.lastpong) > KEEPALIVE_TIME)
             {
-                delete gameservers.remove(i--);
-                updateserverlist = true;
+                master::gameservers.erase(master::gameservers.begin() + i--);
+                master::updateserverlist = true;
             }
         }
-        else if(!s.lastping || ENET_TIME_DIFFERENCE(servtime, s.lastping) > PING_TIME)
+        else if(!s.lastping || ENET_TIME_DIFFERENCE(master::servtime, s.lastping) > PING_TIME)
         {
             if(s.numpings >= PING_RETRY)
             {
                 servermessage(s, "failreg failed pinging server\n");
-                delete gameservers.remove(i--);
-                updateserverlist = true;
+                master::gameservers.erase(master::gameservers.begin() + i--);
+                master::updateserverlist = true;
             }
             else
             {
@@ -400,31 +430,21 @@ void checkgameservers()
                 buf.data = (void *)ping;
                 buf.dataLength = sizeof(ping);
                 s.numpings++;
-                s.lastping = servtime ? servtime : 1;
-                enet_socket_send(pingsocket, &s.address, &buf, 1);
+                s.lastping = master::servtime ? master::servtime : 1;
+                enet_socket_send(master::pingsocket, &s.address, &buf, 1);
             }
         }
-    }
-}
-
-void msgbuffer::purge()
-{
-    refs = max(refs - 1, 0);
-    if(refs<=0 && owner.last()!=this)
-    {
-        owner.removeobj(this);
-        delete this;
     }
 }
 
 void purgeauths(client &c)
 {
     int expired = 0;
-    for(int i = 0; i < c.authreqs.length(); i++)
+    for(int i = 0; i < c.authreqs.size(); i++)
     {
-        if(ENET_TIME_DIFFERENCE(servtime, c.authreqs[i].reqtime) >= AUTH_TIME)
+        if(ENET_TIME_DIFFERENCE(master::servtime, c.authreqs[i].reqtime) >= AUTH_TIME)
         {
-            outputf(c, "failauth %u\n", c.authreqs[i].id);
+            c.sendnetmsg("failauth %u\n", c.authreqs[i].id);
             freechallenge(c.authreqs[i].answer);
             expired = i + 1;
         }
@@ -435,17 +455,17 @@ void purgeauths(client &c)
     }
     if(expired > 0)
     {
-        c.authreqs.remove(0, expired);
+        c.authreqs.erase(c.authreqs.begin(), c.authreqs.begin() + expired);
     }
 }
 
 void reqauth(client &c, uint id, char *name)
-{
-    if(ENET_TIME_DIFFERENCE(servtime, c.lastauth) < AUTH_THROTTLE)
+{ /* // stub
+    if(ENET_TIME_DIFFERENCE(master::servtime, c.lastauth) < AUTH_THROTTLE)
     {
         return;
     }
-    c.lastauth = servtime;
+    c.lastauth = master::servtime;
     purgeauths(c);
 
     time_t t = time(NULL);
@@ -463,7 +483,7 @@ void reqauth(client &c, uint id, char *name)
     {
         copystring(ip, "-");
     }
-    conoutf("%s: attempting \"%s\" as %u from %s", ct ? ct : "-", name, id, ip);
+    io::lprintf(LogLevel::Info, "%s: attempting \"%s\" as %u from %s", ct ? ct : "-", name, id, ip);
 
     userinfo *u = users.access(name);
     if(!u)
@@ -487,11 +507,11 @@ void reqauth(client &c, uint id, char *name)
     buf.setsize(0);
     a.answer = genchallenge(u->pubkey, seed, sizeof(seed), buf);
 
-    outputf(c, "chalauth %u %s\n", id, buf.getbuf());
+    outputf(c, "chalauth %u %s\n", id, buf.getbuf()); */
 }
 
 void confauth(client &c, uint id, const char *val)
-{
+{ /* stub
     purgeauths(c);
 
     for(int i = 0; i < c.authreqs.length(); i++)
@@ -518,10 +538,8 @@ void confauth(client &c, uint id, const char *val)
             return;
         }
     }
-    outputf(c, "failauth %u\n", id);
+    outputf(c, "failauth %u\n", id); */
 }
-
-ENetSocketSet readset, writeset;
 
 void checkclients()
 {

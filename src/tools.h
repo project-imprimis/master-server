@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <cstring>
+#include <vector>
 
 // horror;
 #ifdef NULL
@@ -84,6 +85,48 @@ namespace tools
     {
         if(n == NULL) n = s.length();
         return (char *)memchr(s.c_str(), c, n);
+    }
+
+    /**
+     *  Parses a given command string, understands double quotes and escaping.
+     *  @returns std::vector of parameters
+     */
+    std::vector<std::string> parsecmd(std::string command)
+    {
+        std::vector<std::string> mainbuffer;
+        std::string segmentbuffer;
+        bool quoted = false;
+
+        auto updatesegmentbuffer = [&]()
+        {
+            if(!segmentbuffer.empty())
+            {
+                mainbuffer.push_back(segmentbuffer);
+                segmentbuffer.clear();
+            }
+        };
+
+        for(size_t i = 0; i < command.size(); i++)
+        {
+            if(command[i] == '\"'
+               && !(i-1 >= 0 && command[i-1] == '\\'))
+            {
+                quoted = !quoted;
+                if(quoted) updatesegmentbuffer();
+            }
+            else if((command[i] == ' ' || command[i] == '\r' || command[i] == '\n') && !quoted)
+            {
+                updatesegmentbuffer();
+            }
+            else
+            {
+                segmentbuffer.push_back(command[i]);
+            }
+
+        }
+
+        updatesegmentbuffer();
+        return mainbuffer;
     }
 }
 

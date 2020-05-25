@@ -24,10 +24,10 @@ namespace io
 
     std::ofstream logfile;
 
-    /*
-    Print message to a file and/or to the console, depending on the
-    specified LogLevel.
-    */
+    /**
+     * Print message to a file and/or to the console, depending on the
+     * specified LogLevel.
+     */
     template<typename... Args>
     void lprintf(LogLevel level, const char *format, Args... args)
     {
