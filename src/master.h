@@ -162,7 +162,9 @@ namespace master
     ENetSocketSet readset, writeset;
 
     std::unordered_map<std::string, std::unordered_map<ipmask, ban>> bans = {
-            {"user", }
+            {"user", {}},
+            {"server", {}},
+            {"global", {}}
     };
     std::unordered_map<std::string, user> users;
     std::vector<client *> clients;

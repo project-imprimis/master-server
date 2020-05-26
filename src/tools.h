@@ -97,7 +97,7 @@ namespace tools
         std::string segmentbuffer;
         bool quoted = false;
 
-        auto updatesegmentbuffer = [&]()
+        auto pushbuffer = [&]()
         {
             if(!segmentbuffer.empty())
             {
@@ -112,11 +112,11 @@ namespace tools
                && !(i-1 >= 0 && command[i-1] == '\\'))
             {
                 quoted = !quoted;
-                if(quoted) updatesegmentbuffer();
+                if(quoted) pushbuffer();
             }
             else if((command[i] == ' ' || command[i] == '\r' || command[i] == '\n') && !quoted)
             {
-                updatesegmentbuffer();
+                pushbuffer();
             }
             else
             {
@@ -125,7 +125,7 @@ namespace tools
 
         }
 
-        updatesegmentbuffer();
+        pushbuffer();
         return mainbuffer;
     }
 }
@@ -730,11 +730,20 @@ static inline char *path(char *s)
 
 struct ipmask
 {
-    enet_uint32 ip, mask;
+    uint32_t ipv4;
+    uint8_t mask; // Also the IPv6 prefix
+    //std::array<uchar, 16> ipv6;
 
-    void parse(const char *name);
-    int print(char *buf) const;
-    bool check(enet_uint32 host) const { return (host & mask) == ip; }
+
+    //ipmask(std::array<uchar, 16> ipv6, uint8_t mask = 255) : ipv6(ipv6), mask(mask) {};
+    ipmask(const std::string &input);
+    ipmask(uint32_t ipv4, uint8_t mask = 32) : ipv4(ipv4), mask(mask) {};
+
+    std::string getstring();
+    bool match(uint32_t host) const
+    {
+        return (host & mask) == ip;
+    }
 };
 
 #endif
