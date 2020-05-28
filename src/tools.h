@@ -6,6 +6,8 @@
 #include <memory>
 #include <cstring>
 #include <vector>
+#include <bitset>
+#include <climits>
 
 // horror;
 #ifdef NULL
@@ -734,15 +736,33 @@ struct ipmask
     uint8_t mask; // Also the IPv6 prefix
     //std::array<uchar, 16> ipv6;
 
+    bool operator==(const ipmask &comparative) const
+    {
+        return (ipv4 == comparative.ipv4 &&
+                mask == comparative.mask);
+    }
 
-    //ipmask(std::array<uchar, 16> ipv6, uint8_t mask = 255) : ipv6(ipv6), mask(mask) {};
-    ipmask(const std::string &input);
-    ipmask(uint32_t ipv4, uint8_t mask = 32) : ipv4(ipv4), mask(mask) {};
+    //explicit ipmask(std::array<uchar, 16> ipv6, uint8_t mask = 255) : ipv6(ipv6), mask(mask) {};
+    explicit ipmask(const std::string &input);
+    explicit ipmask(uint32_t ipv4, uint8_t mask = 32) : ipv4(ipv4), mask(mask) {};
+    ipmask() : ipv4(0), mask(0) {};
 
     std::string getstring();
     bool match(uint32_t host) const
     {
-        return (host & mask) == ip;
+        return (host & mask) == ipv4;
+    }
+};
+
+template<>
+struct std::hash<ipmask> {
+    std::size_t operator()(const ipmask &ip)
+    {
+        constexpr std::size_t N = (sizeof(ip.mask) + sizeof(ip.ipv4)) * CHAR_BIT;
+        std::bitset<N> data{ip.mask};
+        data <<= sizeof(ip.ipv4) * CHAR_BIT;
+        data |= ip.ipv4;
+        return std::hash<std::bitset<N>>{}(data);
     }
 };
 

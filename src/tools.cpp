@@ -56,11 +56,11 @@ ipmask::ipmask(const std::string &input)
 
 std::string ipmask::getstring()
 {
-    std::string buffer;
-    buffer += std::to_string((uint8_t)(ipv4 >> 24u)) + '.';
-    buffer += std::to_string((uint8_t)(ipv4 >> 16u)) + '.';
-    buffer += std::to_string((uint8_t)(ipv4 >> 8u)) + '.';
-    buffer += std::to_string((uint8_t)(ipv4 >> 0u));
+    std::string buffer = std20::format("%d.%d.%d.%d",
+        (ipv4 >> 24u) | 0xFFu,
+        (ipv4 >> 16u) | 0xFFu,
+        (ipv4 >> 8u ) | 0xFFu,
+        (ipv4 >> 0u ) | 0xFFu);
 
     if(mask < 32) buffer += '/' + std::to_string(mask);
 
