@@ -23,12 +23,6 @@ typedef unsigned long ulong;
 typedef signed long long int llong;
 typedef unsigned long long int ullong;
 
-#ifdef _DEBUG
-#define ASSERT(c) assert(c)
-#else
-#define ASSERT(c) if(c) {}
-#endif
-
 #if defined(__GNUC__) || (defined(_MSC_VER) && _MSC_VER >= 1400)
 #define RESTRICT __restrict
 #else
@@ -315,11 +309,11 @@ template <class T> struct vector
 
     int capacity() const { return alen; }
     int length() const { return ulen; }
-    T &operator[](int i) { ASSERT(i>=0 && i<ulen); return buf[i]; }
-    const T &operator[](int i) const { ASSERT(i >= 0 && i<ulen); return buf[i]; }
+    T &operator[](int i) { return buf[i]; }
+    const T &operator[](int i) const { return buf[i]; }
 
-    void shrink(int i) { ASSERT(i<=ulen); if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
-    void setsize(int i) { ASSERT(i<=ulen); ulen = i; }
+    void shrink(int i) { if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
+    void setsize(int i) { ulen = i; }
 
     T *getbuf() { return buf; }
     const T *getbuf() const { return buf; }
