@@ -8,14 +8,15 @@
 
 #include "master.h"
 
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <unordered_map>
 #include "cube.h"
 #include "io.h"
 #include <csignal>
-#include <ctime>
 #include <enet/time.h>
+#include <ctime>
 
 client::client() :
     message(nullptr),
@@ -193,11 +194,14 @@ void master::init(int port, const char *ip = nullptr)
     }
 
     enet_time_set(0);
-    starttime = time(NULL);
-    char *ct = ctime(&starttime);
+    starttime = std::time(nullptr);
+    std::string starttimestr = std::ctime(&starttime);
 
-    // Add terminating null character if given a newline instead
-    if(strchr(ct, '\n'))
+    // Strip out all newlines from resulting string
+    starttimestr.erase(std::remove(starttimestr.begin(), starttimestr.end(), '\n'),
+            starttimestr.end());
+
+    if(strchr(starttimestr, '\n'))
     {
         *strchr(ct, '\n') = '\0';
     }
