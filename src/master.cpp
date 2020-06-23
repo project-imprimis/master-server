@@ -723,12 +723,13 @@ void checkclients()
 }
 
 void banclients()
-{
-    for(int i = clients.length(); --i >=0;) //note reverse iteration
+{/*
+    for(int i = master::clients.size(); --i >=0;) //note reverse iteration
     {
-        if(checkban(bans, clients[i]->address.host))
+        if(checkban(master::bans, clients[i]->address.host))
         {
             purgeclient(i);
         }
     }
+    */
 }
