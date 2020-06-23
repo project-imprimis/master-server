@@ -18,6 +18,16 @@
 #include <enet/etime.h>
 #include <ctime>
 
+user::user(std::string name, std::string privkey) :
+    name(std::move(name)),
+    privkey(std::move(privkey)) { }
+
+ban::ban(type bantype, ipmask ipaddr, std::string reason = "", time_t expiry = NULL) :
+    bantype(bantype),
+    ipaddr(ipaddr),
+    reason(std::move(reason)),
+    expiry(expiry) { }
+
 client::client() :
     message(nullptr),
     inputpos(0),

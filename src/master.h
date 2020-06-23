@@ -34,7 +34,7 @@ struct user
     std::string name;
     std::string privkey;
 
-    user(std::string name, std::string privkey) : name(std::move(name)), privkey(std::move(privkey)) {}
+    user(std::string name, std::string privkey);
 };
 
 struct ban
@@ -51,7 +51,7 @@ struct ban
     std::string reason;
     time_t expiry;
 
-    ban(ipmask ipaddr, std::string reason = "", time_t expiry = NULL);
+    ban(type bantype, ipmask ipaddr, std::string reason, time_t expiry);
 };
 
 struct authreq
