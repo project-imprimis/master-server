@@ -73,58 +73,41 @@ namespace std20
 
 namespace tools
 {
-    /*
-    The classic C memchr() method, adapted to use std::strings
-    Excellent for searching short strings. For longer strings,
-    use the in-built std::find() method.
+
+    /**
+     * The classic C memchr() method, adapted to use std::strings
+     *
+     * Excellent for searching short strings. For longer strings,
+     * use the in-built std::find() method.
+     * @param s std::string stack
+     * @param c int needle, interpreted as its char value
+     * @param n size_t stack size
     */
-    void *str_memchr(std::string s, int c, size_t n = NULL)
-    {
-        if(n == NULL) n = s.length();
-        return (char *)memchr(s.c_str(), c, n);
-    }
+    void *strmemchr(std::string s, int c, size_t n = NULL);
+
+    /**
+     * Takes a time_t value and outputs a std::ctime value as an std::string
+     *
+     * Omits any potential newlines
+     * @param time time_t value
+     * @returns std::string
+     */
+    std::string strtime(const time_t *time);
 
     /**
      *  Parses a given command string, understands double quotes and escaping.
      *  @returns std::vector of parameters
      */
-    std::vector<std::string> parsecmd(std::string command)
-    {
-        std::vector<std::string> mainbuffer;
-        std::string segmentbuffer;
-        bool quoted = false;
+    std::vector<std::string> parsecmd(std::string command);
 
-        auto pushbuffer = [&]()
-        {
-            if(!segmentbuffer.empty())
-            {
-                mainbuffer.push_back(segmentbuffer);
-                segmentbuffer.clear();
-            }
-        };
-
-        for(size_t i = 0; i < command.size(); i++)
-        {
-            if(command[i] == '\"'
-               && !(i-1 >= 0 && command[i-1] == '\\'))
-            {
-                quoted = !quoted;
-                if(quoted) pushbuffer();
-            }
-            else if((command[i] == ' ' || command[i] == '\r' || command[i] == '\n') && !quoted)
-            {
-                pushbuffer();
-            }
-            else
-            {
-                segmentbuffer.push_back(command[i]);
-            }
-
-        }
-
-        pushbuffer();
-        return mainbuffer;
-    }
+    /**
+     * Appends the given path to the home directory path
+     *
+     * @param relpath String representing the relative path
+     * @returns std::string representing the full path
+     * @replaces path
+     */
+    inline std::string resolvepath(std::string relpath);
 }
 
 /* END NEW IMPRIMIS TOOLING */
@@ -659,15 +642,25 @@ struct streambuf
 
 extern string homedir;
 
+/**
+ * Returns a full path from the home directory
+ *
+ * Bodged code, requires a re-write
+ * @param s char* representing the path to append
+ * @returns char* representing the full path
+ */
 static inline char *path(char *s)
 {
+    // Endless loop, defines curpart as the initial string
     for(char *curpart = s;;)
     {
+        // Find an ampersand (&) in curpart and replaces it with a nul char
         char *endpart = strchr(curpart, '&');
         if(endpart)
         {
             *endpart = '\0';
         }
+        // Find a less than (<) in curpart and replaces it
         if(curpart[0]=='<')
         {
             char *file = strrchr(curpart, '>');
