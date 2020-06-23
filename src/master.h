@@ -159,13 +159,12 @@ namespace master
         serverbans,
         globalbans;
 
-    ENetSocketSet readset, writeset;
-
+    /*
     std::unordered_map<std::string, std::unordered_map<ipmask, ban>> bans = {
             {"user", {}},
             {"server", {}},
             {"global", {}}
-    };
+    };*/
     std::unordered_map<std::string, user> users;
     std::vector<client *> clients;
     std::vector<gameserver *> gameservers;
