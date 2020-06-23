@@ -28,7 +28,16 @@ int main(int argc, char **argv)
     }
     if(argc>=3)
     {
-        port = atoi(argv[2]);
+        long _port = strtol(argv[2], nullptr, 10);
+
+        if(_port > USHRT_MAX || _port < 0)
+        {
+            io::lprintf(LogLevel::Warn, "Invalid port: %l", _port);
+        }
+        else
+        {
+            port = (int)_port;
+        }
     }
     if(argc>=4)
     {
