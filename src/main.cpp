@@ -10,13 +10,17 @@ void reloadsignal(__attribute__((unused)) int signum)
 
 int main(int argc, char **argv)
 {
-    if(enet_initialize()<0)
+    // Initialize Enet, exit on fail
+    if(enet_initialize() < 0)
     {
         io::fatal("Unable to initialise network module");
     }
     atexit(enet_deinitialize);
-    const char *dir = "", *ip = NULL;
+
+    const char *dir = "";
+    const char *ip = nullptr;
     int port = 42068;
+
     if(argc>=2)
     {
         dir = argv[1];
@@ -29,6 +33,7 @@ int main(int argc, char **argv)
     {
         ip = argv[3];
     }
+
     DEF_FORMAT_STRING(logname, "%smaster.log", dir);
     DEF_FORMAT_STRING(cfgname, "%smaster.cfg", dir);
     path(logname);
@@ -38,12 +43,12 @@ int main(int argc, char **argv)
     io::logfile.open(logname);
     std::cerr.rdbuf(io::logfile.rdbuf());
 
-    logfile = fopen(logname, "a");
+    /*logfile = fopen(logname, "a");
     if(!logfile)
     {
         logfile = stdout;
     }
-    setvbuf(logfile, NULL, _IOLBF, BUFSIZ);
+    setvbuf(logfile, NULL, _IOLBF, BUFSIZ);*/
 #ifndef WIN32
     signal(SIGUSR1, reloadsignal);
 #endif
