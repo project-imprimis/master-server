@@ -545,44 +545,66 @@ void confauth(client &c, uint id, const char *val)
     outputf(c, "failauth %u\n", id); */
 }
 
+/**
+ * Check each client and find socket actions to take
+ */
 void checkclients()
 {
+    // These variables are available as part of the master namespace
+    // Are they necessary here?
     ENetSocketSet readset, writeset;
-    ENetSocket maxsock = max(serversocket, pingsocket);
+    ENetSocket maxsock = std::max(master::serversocket, master::pingsocket);
+    // Initialize sockets
     ENET_SOCKETSET_EMPTY(readset);
     ENET_SOCKETSET_EMPTY(writeset);
-    ENET_SOCKETSET_ADD(readset, serversocket);
-    ENET_SOCKETSET_ADD(readset, pingsocket);
-    for(int i = 0; i < clients.length(); i++)
+    // Map sockets to the master server equivalent
+    ENET_SOCKETSET_ADD(readset, master::serversocket);
+    ENET_SOCKETSET_ADD(readset, master::pingsocket);
+
+    for(auto & i : master::clients)
     {
-        client &c = *clients[i];
-        if(c.authreqs.length())
+        client &c = *i;
+
+        // Purge any pending authentication requests
+        // Stub?
+        if(!c.authreqs.empty())
         {
             purgeauths(c);
         }
-        if(c.message || c.output.length())
+
+        // If there is a message to send out or the output isn't empty
+        // Flush to ENET
+        if(c.message || !c.output.empty())
         {
             ENET_SOCKETSET_ADD(writeset, c.socket);
-        }
+        } // Otherwise, try to read an incoming message
         else
         {
             ENET_SOCKETSET_ADD(readset, c.socket);
         }
-        maxsock = max(maxsock, c.socket);
+
+        // Redefine maxsock against the current client's socket
+        maxsock = std::max(maxsock, c.socket);
     }
+
+    // Verify that all file descriptors are valid.
+    // Otherwise, return.
     if(enet_socketset_select(maxsock, &readset, &writeset, 1000)<=0)
     {
         return;
     }
-    if(ENET_SOCKETSET_CHECK(readset, pingsocket))
+
+    // Check if sockets exist, otherwise run method to create it
+    if(ENET_SOCKETSET_CHECK(readset, master::pingsocket))
     {
         checkserverpongs();
     }
-    if(ENET_SOCKETSET_CHECK(readset, serversocket))
+    if(ENET_SOCKETSET_CHECK(readset, master::serversocket))
     {
+        // TODO: Separate into own method
         ENetAddress address;
-        ENetSocket clientsocket = enet_socket_accept(serversocket, &address);
-        if(clients.length()>=CLIENT_LIMIT || checkban(bans, address.host))
+        ENetSocket clientsocket = enet_socket_accept(master::serversocket, &address);
+        if(master::clients.size() >= CLIENT_LIMIT /*|| checkban(bans, address.host)*/)
         {
             enet_socket_destroy(clientsocket);
         }
@@ -590,66 +612,78 @@ void checkclients()
         {
             int dups = 0,
                 oldest = -1;
-            for(int i = 0; i < clients.length(); i++)
+
+            int clientindex = 0;
+            for(auto & i : master::clients)
             {
-                if(clients[i]->address.host == address.host)
+                if(i->address.host == address.host)
                 {
                     dups++;
-                    if(oldest<0 || clients[i]->connecttime < clients[oldest]->connecttime)
+                    if(oldest < 0 || i->connecttime < master::clients[oldest]->connecttime)
                     {
-                        oldest = i;
+                        oldest = clientindex;
                     }
                 }
+
+                ++clientindex;
             }
             if(dups >= DUP_LIMIT)
             {
-                purgeclient(oldest);
+                master::clients.erase(master::clients.begin() + oldest);
             }
-            client *c = new client;
-            c->address = address;
-            c->socket = clientsocket;
-            c->connecttime = servtime;
-            c->lastinput = servtime;
-            clients.add(c);
+
+            auto *c = new client;
+            c->address      = address;
+            c->socket       = clientsocket;
+            c->connecttime  = master::servtime;
+            c->lastinput    = master::servtime;
+            master::clients.push_back(c);
         }
     }
 
-    for(int i = 0; i < clients.length(); i++)
+    for(auto & i : master::clients)
     {
-        client &c = *clients[i];
+        client &c = *i;
         if((c.message || c.output.length()) && ENET_SOCKETSET_CHECK(writeset, c.socket))
         {
-            const char *data = c.output.length() ? c.output.getbuf() : c.message->getbuf();
-            int len = c.output.length() ? c.output.length() : c.message->length();
+            const char *data = c.output.empty()
+                    ? c.message->c_str()
+                    : c.output.c_str();
+
+            int len = c.output.empty()
+                    ? c.message->length()
+                    : c.output.length();
+
             ENetBuffer buf;
             buf.data = (void *)&data[c.outputpos];
             buf.dataLength = len-c.outputpos;
-            int res = enet_socket_send(c.socket, NULL, &buf, 1);
+            int res = enet_socket_send(c.socket, nullptr, &buf, 1);
             if(res>=0)
             {
                 c.outputpos += res;
                 if(c.outputpos>=len)
                 {
-                    if(c.output.length())
+                    if(!c.output.empty())
                     {
-                        c.output.setsize(0);
+                        //c.output.setsize(0);
+                        c.output.clear();
                     }
                     else
                     {
-                        c.message->purge();
-                        c.message = NULL;
+                        c.message->clear();
+                        c.message = nullptr;
                     }
                     c.outputpos = 0;
-                    if(!c.message && c.output.empty() && c.shouldpurge)
+                    if(!c.message && c.output.empty() && c.shoulddestroy)
                     {
-                        purgeclient(i--);
+                        delete i;
                         continue;
                     }
                 }
             }
             else
             {
-                purgeclient(i--);
+                delete i;
                 continue;
             }
         }
@@ -658,31 +692,31 @@ void checkclients()
             ENetBuffer buf;
             buf.data = &c.input[c.inputpos];
             buf.dataLength = sizeof(c.input) - c.inputpos;
-            int res = enet_socket_receive(c.socket, NULL, &buf, 1);
+            int res = enet_socket_receive(c.socket, nullptr, &buf, 1);
             if(res>0)
             {
                 c.inputpos += res;
-                c.input[min(c.inputpos, static_cast<int>(sizeof(c.input)-1))] = '\0';
-                if(!checkclientinput(c))
+                c.input[std::min(c.inputpos, sizeof(c.input)-1)] = '\0';
+                if(!c.readinput())
                 {
-                    purgeclient(i--);
+                    delete i;
                     continue;
                 }
             }
             else
             {
-                purgeclient(i--);
+                delete i;
                 continue;
             }
         }
         if(c.output.length() > OUTPUT_LIMIT)
         {
-            purgeclient(i--);
+            delete i;
             continue;
         }
-        if(ENET_TIME_DIFFERENCE(servtime, c.lastinput) >= (c.registeredserver ? KEEPALIVE_TIME : CLIENT_TIME))
+        if(ENET_TIME_DIFFERENCE(master::servtime, c.lastinput) >= (c.isregisteredserver ? KEEPALIVE_TIME : CLIENT_TIME))
         {
-            purgeclient(i--);
+            delete i;
             continue;
         }
     }
