@@ -3,12 +3,10 @@
 
 volatile int reloadcfg = 1;
 
-#ifndef WIN32
-void reloadsignal(int signum)
+void reloadsignal(__attribute__((unused)) int signum)
 {
     reloadcfg = 1;
 }
-#endif
 
 int main(int argc, char **argv)
 {
