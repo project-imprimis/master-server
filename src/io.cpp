@@ -47,4 +47,5 @@ namespace
 bool io::init(char *homedir)
 {
     logfile.open(homedir + std::string(LOGNAME) + ".log", std::ios::app);
+    return true;
 }
