@@ -173,10 +173,10 @@ namespace master
 
     bool updateserverlist = true;
 
-    /*
-    Sets up the ping socket
-    Replaces ``configpingsocket``
-    */
+    /**
+     * Sets up the ping socket
+     * @replaces configpingsocket
+     */
     bool configpingsocket(ENetAddress *address);
 
     /**
@@ -184,10 +184,10 @@ namespace master
      */
     void addgameserver(client &c);
 
-    /*
-    Initialize the master server
-    Replaces ``setupserver``
-    */
+    /**
+     * Initialize the master server
+     * @replaces setupserver
+     */
     void init(int port, const char *ip);
 };
 
