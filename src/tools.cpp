@@ -1,7 +1,76 @@
-// implementation of network tools
-
-#include <sstream>
+#include <unordered_map>
+#include <ctime>
 #include "cube.h"
+
+#include "tools.h"
+
+/* Tools namespace */
+
+void * tools::strmemchr(std::string s, int c, size_t n) {
+    if(n == NULL) n = s.length();
+    return (char *)memchr(s.c_str(), c, n);
+}
+
+std::string tools::strtime(const std::time_t *time) {
+    std::string _time = std::asctime(std::localtime(time));
+
+    if(_time.back() == '\n') _time.pop_back();
+    return _time;
+}
+
+std::vector<std::string> tools::parsecmd(std::string command) {
+    std::vector<std::string> mainbuffer;
+    std::string segmentbuffer;
+    bool quoted = false;
+
+    auto pushbuffer = [&]()
+    {
+        if(!segmentbuffer.empty())
+        {
+            mainbuffer.push_back(segmentbuffer);
+            segmentbuffer.clear();
+        }
+    };
+
+    for(size_t i = 0; i < command.size(); i++)
+    {
+        if(command[i] == '\"'
+           && !(i-1 >= 0 && command[i-1] == '\\'))
+        {
+            quoted = !quoted;
+            if(quoted) pushbuffer();
+        }
+        else if((command[i] == ' ' || command[i] == '\r' || command[i] == '\n') && !quoted)
+        {
+            pushbuffer();
+        }
+        else
+        {
+            segmentbuffer.push_back(command[i]);
+        }
+
+    }
+
+    pushbuffer();
+    return mainbuffer;
+}
+
+/*
+std::string tools::resolvepath(std::string relpath)
+{
+    enum flag
+    {
+        ESCAPE = 1,
+        FORMAT = 2,
+    };
+
+    for(auto c : relpath)
+    {
+
+    }
+
+}
+*/
 
 ///////////////////////// network ///////////////////////
 
