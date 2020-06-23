@@ -6,15 +6,14 @@
 #ifdef WIN32
 #define _USE_MATH_DEFINES
 #endif
+/*
 #include <ctime>
 #include <cstring>
 #include <cstdarg>
 #include <cassert>
 #include <iostream>
 #include <enet/enet.h>
-
-#include "tools.h"
-#include "crypto.h"
+*/
 
 #endif
 
