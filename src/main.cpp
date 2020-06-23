@@ -1,5 +1,6 @@
-#include "io.cpp"
-#include "master.cpp"
+#include <csignal>
+#include "io.h"
+#include "master.h"
 
 volatile int reloadcfg = 1;
 
@@ -52,19 +53,28 @@ int main(int argc, char **argv)
 #ifndef WIN32
     signal(SIGUSR1, reloadsignal);
 #endif
-    setupserver(port, ip);
-    for(;;)
+
+    /**
+     * Initialize the master server component
+     */
+    master::init(port, ip);
+
+    /**
+     * Loop to check if the config file needs to be reloaded.
+     * Runs endlessly, does not belong in main.cpp
+     */
+    while(true)
     {
         if(reloadcfg)
         {
-            conoutf("reloading %s", cfgname);
+            io::lprintf(LogLevel::Info, "Reloading file: %s", cfgname);
             //execfile(cfgname);
-            bangameservers();
-            banclients();
-            gengbanlist();
+            //bangameservers();
+            //banclients();
+            //gengbanlist();
             reloadcfg = 0;
         }
-        servtime = enet_time_get();
+        master::servtime = enet_time_get();
         checkclients();
         checkgameservers();
     }
