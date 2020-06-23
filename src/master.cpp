@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include "cube.h"
@@ -35,7 +36,7 @@ client::client() :
     servport(-1),
     lastauth(0),
     shoulddestroy(false),
-    isregisteredserver(false) {}
+    isregisteredserver(false) { }
 
 client::~client()
 {
@@ -188,7 +189,7 @@ void master::init(int port, const char *ip = nullptr)
     }
 
     if(enet_socket_bind(serversocket, &address) < 0
-        || enet_socket_listen(serversocket, -1) < 0)
+    || enet_socket_listen(serversocket, -1) < 0)
     {
         io::fatal("Failed to bind socket");
     }
@@ -205,18 +206,8 @@ void master::init(int port, const char *ip = nullptr)
 
     enet_time_set(0);
     starttime = std::time(nullptr);
-    std::string starttimestr = std::ctime(&starttime);
 
-    // Strip out all newlines from resulting string
-    starttimestr.erase(std::remove(starttimestr.begin(), starttimestr.end(), '\n'),
-            starttimestr.end());
-
-    if(strchr(starttimestr, '\n'))
-    {
-        *strchr(ct, '\n') = '\0';
-    }
-
-    io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, ct);
+    io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, tools::strtime((const time_t *)starttime).c_str());
 }
 
 /*
