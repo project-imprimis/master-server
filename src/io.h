@@ -96,9 +96,9 @@ namespace io
     }
 
     template<typename... Args>
-    void fatal(const char *format, ...)
+    void fatal(const char *format, Args... args)
     {
-        lprintf(LogLevel::Fatal, format, args);
+        lprintf(LogLevel::Fatal, format, args...);
         exit(EXIT_FAILURE);
     }
 
