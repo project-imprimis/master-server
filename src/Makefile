@@ -1,21 +1,24 @@
-CXXFLAGS= -O3 -fomit-frame-pointer -ffast-math -std=c++17
-override CXXFLAGS+= -Wall -fsigned-char -fno-exceptions -fno-rtti
+CXXFLAGS= -O3 -fomit-frame-pointer -ffast-math -fexceptions -std=c++17
+override CXXFLAGS+= -Wall -fsigned-char -fno-rtti
 
 INCLUDES= -I../enet/include -Ishared
 
 all: master_server
 
-master_server : master.o tools.o crypto.o
-		g++ $(CXXFLAGS) $(INCLUDES) -o master_server master.o tools.o crypto.o -L../enet -lenet -lz
+master_server : main.o master.o tools.o io.o
+		g++ $(CXXFLAGS) $(INCLUDES) -o master_server main.o master.o tools.o io.o -L../enet -lenet -lz
 
-master.o : master.cpp cube.h tools.h crypto.h
+main.o :
+		g++ $(CXXFLAGS) $(INCLUDES) -c main.cpp
+
+master.o : master.h
 		g++ $(CXXFLAGS) $(INCLUDES) -c master.cpp
 
-tools.o : tools.cpp cube.h tools.h crypto.h
+tools.o : tools.h
 		g++ $(CXXFLAGS) $(INCLUDES) -c tools.cpp
 
-crypto.o : crypto.cpp cube.h tools.h crypto.h
-		g++ $(CXXFLAGS) $(INCLUDES) -c crypto.cpp
+io.o : io.h
+		g++ $(CXXFLAGS) $(INCLUDES) -c io.cpp
 
 clean:
-		rm master.o tools.o crypto.o master_server
+		rm main.o master.o tools.o io.o master_server
