@@ -76,7 +76,7 @@ namespace io
         // Check loglevel and write to log file
         if(FILEOUT_LOGLEVEL <= level)
         {
-            logfile << "[" + prefix + "] " + std20::format(format, args...) + '\n';
+            logfile << "[" + std::string(1, prefix)  + "] " + std20::format(format, args...) + '\n';
         }
 
         // Check loglevel and write to console
@@ -85,11 +85,11 @@ namespace io
             // Check if we need to write to stderr instead
             if(STDERR_LOGLEVEL <= level)
             {
-                std::cerr << "[" + prefix + "] " + std20::format(format, args...) + '\n';
+                std::cerr << "[" + std::string(1, prefix) + "] " + std20::format(format, args...) + '\n';
             }
             else
             {
-                std::cout << "[" + prefix + "] " + std20::format(format, args...) + '\n';
+                std::cout << "[" + std::string(1, prefix)  + "] " + std20::format(format, args...) + '\n';
             }
         }
 
