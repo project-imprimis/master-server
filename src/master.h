@@ -191,4 +191,8 @@ namespace master
     void init(int port, const char *ip);
 };
 
+void checkclients();
+
+void checkgameservers();
+
 #endif
