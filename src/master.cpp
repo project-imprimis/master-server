@@ -15,7 +15,7 @@
 #include "cube.h"
 #include "io.h"
 #include <csignal>
-#include <enet/time.h>
+#include <enet/etime.h>
 #include <ctime>
 
 client::client() :

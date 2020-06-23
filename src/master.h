@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include "tools.h"
 #include <enet/enet.h>
-#include <enet/time.h> // Replace with ctime?
+#include <enet/etime.h>
 #include <ctime>
 
 #define INPUT_LIMIT 4096            // Document
