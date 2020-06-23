@@ -450,7 +450,6 @@ void purgeauths(client &c)
         if(ENET_TIME_DIFFERENCE(master::servtime, c.authreqs[i].reqtime) >= AUTH_TIME)
         {
             c.sendnetmsg("failauth %u\n", c.authreqs[i].id);
-            freechallenge(c.authreqs[i].answer);
             expired = i + 1;
         }
         else
