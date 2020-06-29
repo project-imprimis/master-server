@@ -207,7 +207,7 @@ void master::init(int port, const char *ip = nullptr)
     enet_time_set(0);
     starttime = std::time(nullptr);
 
-    io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, tools::strtime((const time_t *)starttime).c_str());
+    io::lprintf(LogLevel::Info, "*** Starting master server on %s %d at %s ***", ip ? ip : "localhost", port, tools::strtime(&starttime).c_str());
 }
 
 /*
