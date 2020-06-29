@@ -1,4 +1,4 @@
-CXXFLAGS= -O3 -fomit-frame-pointer -ffast-math -fexceptions -std=c++17
+CXXFLAGS= -O0 -ggdb3 -fexceptions -std=c++17
 override CXXFLAGS+= -Wall -fsigned-char -fno-rtti
 
 INCLUDES= -I../enet/include -Ishared

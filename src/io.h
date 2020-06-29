@@ -57,12 +57,12 @@ namespace
 
 namespace io
 {
-    const LogLevel FILEOUT_LOGLEVEL = LogLevel::Info;
-    const LogLevel CONOUT_LOGLEVEL = LogLevel::Warn;
-    const LogLevel STDERR_LOGLEVEL = LogLevel::Error;
-    const char *LOGNAME = "master";
+    inline const LogLevel FILEOUT_LOGLEVEL = LogLevel::Info;
+    inline const LogLevel CONOUT_LOGLEVEL = LogLevel::Warn;
+    inline const LogLevel STDERR_LOGLEVEL = LogLevel::Error;
+    inline const char *LOGNAME = "master";
 
-    std::ofstream logfile;
+    inline std::ofstream logfile;
 
     /**
      * Print message to a file and/or to the console, depending on the

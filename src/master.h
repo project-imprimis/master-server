@@ -147,15 +147,14 @@ struct client
 
 namespace master
 {
-    std::ofstream logfile;
-    ENetSocket serversocket = ENET_SOCKET_NULL;
-    ENetSocket pingsocket = ENET_SOCKET_NULL;
-    ENetSocketSet readset,
+    inline ENetSocket serversocket = ENET_SOCKET_NULL;
+    inline ENetSocket pingsocket = ENET_SOCKET_NULL;
+    inline ENetSocketSet readset,
         writeset;
-    time_t starttime;
-    enet_uint32 servtime = 0;
+    inline time_t starttime;
+    inline enet_uint32 servtime = 0;
 
-    std::vector<ipmask> userbans,
+    inline std::vector<ipmask> userbans,
         serverbans,
         globalbans;
 
@@ -165,13 +164,13 @@ namespace master
             {"server", {}},
             {"global", {}}
     };*/
-    std::unordered_map<std::string, user> users;
-    std::vector<client *> clients;
-    std::vector<gameserver *> gameservers;
-    std::vector<msgbuffer *> gameserverlists,
+    inline std::unordered_map<std::string, user> users;
+    inline std::vector<client *> clients;
+    inline std::vector<gameserver *> gameservers;
+    inline std::vector<msgbuffer *> gameserverlists,
         gbanlists;
 
-    bool updateserverlist = true;
+    inline bool updateserverlist = true;
 
     /**
      * Sets up the ping socket
