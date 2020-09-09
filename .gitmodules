@@ -1,3 +1,0 @@
-[submodule "enet"]
-	path = enet
-	url = git@github.com:project-imprimis/enet.git
