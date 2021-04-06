@@ -13,9 +13,6 @@
 #define INPUT_LIMIT 4096
 #define OUTPUT_LIMIT (64*1024)
 #define CLIENT_TIME (3*60*1000)
-#define AUTH_TIME (30*1000)
-#define AUTH_LIMIT 100
-#define AUTH_THROTTLE 1000
 #define CLIENT_LIMIT 4096
 #define DUP_LIMIT 16
 #define PING_TIME 3000
@@ -27,29 +24,6 @@
 
 
 FILE *logfile = NULL;
-
-struct userinfo
-{
-    char *name;
-    void *pubkey;
-};
-hashnameset<userinfo> users;
-
-void adduser(char *name, char *pubkey)
-{
-    name = newstring(name);
-    userinfo &u = users[name];
-    u.name = name;
-    u.pubkey = parsepubkey(pubkey);
-}
-//COMMAND(adduser, "ss");
-
-void clearusers()
-{
-    ENUMERATE(users, userinfo, u, { delete[] u.name; freepubkey(u.pubkey); });
-    users.clear();
-}
-//COMMAND(clearusers, "");
 
 vector<ipmask> bans, servbans, gbans;
 
@@ -65,7 +39,7 @@ void addban(vector<ipmask> &bans, const char *name)
 {
     ipmask ban;
     ban.parse(name);
-    bans.add(ban); 
+    bans.add(ban);
 }
 //ICOMMAND(ban, "s", (char *name), addban(bans, name));
 //ICOMMAND(servban, "s", (char *name), addban(servbans, name));
@@ -318,7 +292,7 @@ void gengbanlist()
     for(int i = 0; i < gbans.length(); i++)
     {
         ipmask &b = gbans[i];
-        l->buf.put(cmd, cmdlen + b.print(&cmd[cmdlen]));        
+        l->buf.put(cmd, cmdlen + b.print(&cmd[cmdlen]));
         l->buf.add('\n');
     }
     if(gbanlists.length() && gbanlists.last()->equals(*l))
@@ -364,7 +338,7 @@ void addgameserver(client &c)
         {
             continue;
         }
-        ++dups; 
+        ++dups;
         if(s.port == c.servport)
         {
             s.lastping = 0;
@@ -515,110 +489,6 @@ void messagebuf::purge()
     }
 }
 
-void purgeauths(client &c)
-{
-    int expired = 0;
-    for(int i = 0; i < c.authreqs.length(); i++)
-    {
-        if(ENET_TIME_DIFFERENCE(servtime, c.authreqs[i].reqtime) >= AUTH_TIME)
-        {
-            outputf(c, "failauth %u\n", c.authreqs[i].id);
-            freechallenge(c.authreqs[i].answer);
-            expired = i + 1;
-        }
-        else
-        {
-            break;
-        }
-    }
-    if(expired > 0)
-    {
-        c.authreqs.remove(0, expired);
-    }
-}
-
-void reqauth(client &c, uint id, char *name)
-{
-    if(ENET_TIME_DIFFERENCE(servtime, c.lastauth) < AUTH_THROTTLE)
-    {
-        return;
-    }
-    c.lastauth = servtime;
-    purgeauths(c);
-
-    time_t t = time(NULL);
-    char *ct = ctime(&t);
-    if(ct)
-    {
-        char *newline = strchr(ct, '\n');
-        if(newline)
-        {
-            *newline = '\0';
-        }
-    }
-    string ip;
-    if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0)
-    {
-        copystring(ip, "-");
-    }
-    conoutf("%s: attempting \"%s\" as %u from %s", ct ? ct : "-", name, id, ip);
-
-    userinfo *u = users.access(name);
-    if(!u)
-    {
-        outputf(c, "failauth %u\n", id);
-        return;
-    }
-
-    if(c.authreqs.length() >= AUTH_LIMIT)
-    {
-        outputf(c, "failauth %u\n", c.authreqs[0].id);
-        freechallenge(c.authreqs[0].answer);
-        c.authreqs.remove(0);
-    }
-
-    authreq &a = c.authreqs.add();
-    a.reqtime = servtime;
-    a.id = id;
-    uint seed[3] = { uint(starttime), servtime, uint(rand()) };
-    static vector<char> buf;
-    buf.setsize(0);
-    a.answer = genchallenge(u->pubkey, seed, sizeof(seed), buf);
-
-    outputf(c, "chalauth %u %s\n", id, buf.getbuf());
-}
-
-void confauth(client &c, uint id, const char *val)
-{
-    purgeauths(c);
-
-    for(int i = 0; i < c.authreqs.length(); i++)
-    {
-        if(c.authreqs[i].id == id)
-        {
-            string ip;
-            if(enet_address_get_host_ip(&c.address, ip, sizeof(ip)) < 0)
-            {
-                copystring(ip, "-");
-            }
-            if(checkchallenge(val, c.authreqs[i].answer))
-            {
-                outputf(c, "succauth %u\n", id);
-                conoutf("succeeded %u from %s", id, ip);
-            }
-            else
-            {
-                outputf(c, "failauth %u\n", id);
-                conoutf("failed %u from %s", id, ip);
-            }
-            freechallenge(c.authreqs[i].answer);
-            c.authreqs.remove(i--);
-            return;
-        }
-    }
-    outputf(c, "failauth %u\n", id);
-}
-
 bool checkclientinput(client &c)
 {
     if(c.inputpos<0)
@@ -631,8 +501,6 @@ bool checkclientinput(client &c)
         *end++ = '\0';
         c.lastinput = servtime;
         int port;
-        uint id;
-        string user, val;
         if(!strncmp(c.input, "list", 4) && (!c.input[4] || c.input[4] == '\n' || c.input[4] == '\r'))
         {
             genserverlist();
@@ -663,14 +531,6 @@ bool checkclientinput(client &c)
                 addgameserver(c);
             }
         }
-        else if(sscanf(c.input, "reqauth %u %100s", &id, user) == 2)
-        {
-            reqauth(c, id, user);
-        }
-        else if(sscanf(c.input, "confauth %u %100s", &id, val) == 2)
-        {
-            confauth(c, id, val);
-        }
         c.inputpos = &c.input[c.inputpos] - end;
         memmove(c.input, end, c.inputpos);
 
@@ -692,10 +552,6 @@ void checkclients()
     for(int i = 0; i < clients.length(); i++)
     {
         client &c = *clients[i];
-        if(c.authreqs.length())
-        {
-            purgeauths(c);
-        }
         if(c.message || c.output.length())
         {
             ENET_SOCKETSET_ADD(writeset, c.socket);

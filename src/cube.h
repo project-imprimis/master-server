@@ -14,7 +14,6 @@
 #include <enet/enet.h>
 
 #include "tools.h"
-#include "crypto.h"
 
 #endif
 
