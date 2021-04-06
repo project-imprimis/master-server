@@ -1,10 +1,6 @@
-#ifdef WIN32
-#define FD_SETSIZE 4096
-#else
 #include <sys/types.h>
 #undef __FD_SETSIZE
 #define __FD_SETSIZE 4096
-#endif
 
 #include "cube.h"
 #include <signal.h>
@@ -693,13 +689,6 @@ void banclients()
 
 volatile int reloadcfg = 1;
 
-#ifndef WIN32
-void reloadsignal(int signum)
-{
-    reloadcfg = 1;
-}
-#endif
-
 int main(int argc, char **argv)
 {
     if(enet_initialize()<0)
@@ -731,9 +720,6 @@ int main(int argc, char **argv)
         logfile = stdout;
     }
     setvbuf(logfile, NULL, _IOLBF, BUFSIZ);
-#ifndef WIN32
-    signal(SIGUSR1, reloadsignal);
-#endif
     setupserver(port, ip);
     for(;;)
     {
