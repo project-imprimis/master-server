@@ -687,7 +687,7 @@ void banclients()
     }
 }
 
-volatile int reloadcfg = 1;
+int reloadcfg = 1;
 
 int main(int argc, char **argv)
 {
