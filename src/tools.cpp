@@ -7,7 +7,7 @@
 // all network traffic is in 32bit ints, which are then compressed using the following simple scheme (assumes that most values are small).
 
 void ipmask::parse(const char *name)
-{   
+{
     union { uchar b[sizeof(enet_uint32)]; enet_uint32 i; } ipconv, maskconv;
     ipconv.i = 0;
     maskconv.i = 0;
@@ -17,14 +17,14 @@ void ipmask::parse(const char *name)
         int n = strtol(name, &end, 10);
         if(!end) break;
         if(end > name) { ipconv.b[i] = n; maskconv.b[i] = 0xFF; }
-        name = end; 
+        name = end;
         while(int c = *name)
         {
-            ++name; 
+            ++name;
             if(c == '.') break;
             if(c == '/')
             {
-                int range = clamp(int(strtol(name, NULL, 10)), 0, 32);
+                int range = std::clamp(int(strtol(name, NULL, 10)), 0, 32);
                 mask = range ? ENET_HOST_TO_NET_32(0xFFffFFff << (32 - range)) : maskconv.i;
                 ip = ipconv.i & mask;
                 return;

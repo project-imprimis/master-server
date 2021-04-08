@@ -15,55 +15,6 @@ typedef unsigned long ulong;
 typedef signed long long int llong;
 typedef unsigned long long int ullong;
 
-#ifdef _DEBUG
-#define ASSERT(c) assert(c)
-#else
-#define ASSERT(c) if(c) {}
-#endif
-
-#if defined(__GNUC__) || (defined(_MSC_VER) && _MSC_VER >= 1400)
-#define RESTRICT __restrict
-#else
-#define RESTRICT
-#endif
-
-#ifdef __GNUC__
-#define UNUSED __attribute__((unused))
-#else
-#define UNUSED
-#endif
-
-#ifdef max
-#undef max
-#endif
-#ifdef min
-#undef min
-#endif
-template<class T>
-static inline T max(T a, T b)
-{
-    return a > b ? a : b;
-}
-template<class T>
-static inline T max(T a, T b, T c)
-{
-    return max(max(a, b), c);
-}
-template<class T>
-static inline T min(T a, T b)
-{
-    return a < b ? a : b;
-}
-template<class T>
-static inline T min(T a, T b, T c)
-{
-    return min(min(a, b), c);
-}
-template<class T, class U>
-static inline T clamp(T a, U b, U c)
-{
-    return max(T(b), min(a, T(c)));
-}
 #define DELETEA(p) if(p) { delete[] p; p = 0; }
 
 #ifdef WIN32
@@ -94,7 +45,7 @@ template<size_t N> inline void vformatstring(char (&d)[N], const char *fmt, va_l
 
 inline char *copystring(char *d, const char *s, size_t len)
 {
-    size_t slen = min(strlen(s), len-1);
+    size_t slen = std::min(strlen(s), len-1);
     memcpy(d, s, slen);
     d[slen] = 0;
     return d;
@@ -219,11 +170,11 @@ template <class T> struct vector
 
     int capacity() const { return alen; }
     int length() const { return ulen; }
-    T &operator[](int i) { ASSERT(i>=0 && i<ulen); return buf[i]; }
-    const T &operator[](int i) const { ASSERT(i >= 0 && i<ulen); return buf[i]; }
+    T &operator[](int i) { return buf[i]; }
+    const T &operator[](int i) const { return buf[i]; }
 
-    void shrink(int i) { ASSERT(i<=ulen); if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
-    void setsize(int i) { ASSERT(i<=ulen); ulen = i; }
+    void shrink(int i) { if(isclass<T>::no) ulen = i; else while(ulen>i) drop(); }
+    void setsize(int i) { ulen = i; }
 
     T *getbuf() { return buf; }
     const T *getbuf() const { return buf; }
@@ -232,7 +183,7 @@ template <class T> struct vector
     void growbuf(int sz)
     {
         int olen = alen;
-        if(alen <= 0) alen = max(MINSIZE, sz);
+        if(alen <= 0) alen = std::max(MINSIZE, sz);
         else while(alen < sz) alen += alen/2;
         if(alen <= olen) return;
         uchar *newbuf = new uchar[alen*sizeof(T)];
