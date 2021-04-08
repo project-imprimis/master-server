@@ -19,17 +19,9 @@
 #define MAXTRANS 5000                  // max amount of data to swallow in 1 go
 
 
-FILE *logfile = NULL;
+FILE *logfile = nullptr;
 
 vector<ipmask> bans, servbans, gbans;
-
-void clearbans()
-{
-    bans.shrink(0);
-    servbans.shrink(0);
-    gbans.shrink(0);
-}
-//COMMAND(clearbans, "");
 
 void addban(vector<ipmask> &bans, const char *name)
 {
@@ -37,9 +29,6 @@ void addban(vector<ipmask> &bans, const char *name)
     ban.parse(name);
     bans.add(ban);
 }
-//ICOMMAND(ban, "s", (char *name), addban(bans, name));
-//ICOMMAND(servban, "s", (char *name), addban(servbans, name));
-//ICOMMAND(gban, "s", (char *name), addban(gbans, name));
 
 bool checkban(vector<ipmask> &bans, enet_uint32 host)
 {
@@ -125,7 +114,7 @@ struct client
     bool shouldpurge;
     bool registeredserver;
 
-    client() : message(NULL), inputpos(0), outputpos(0), servport(-1), lastauth(0), shouldpurge(false), registeredserver(false) {}
+    client() : message(nullptr), inputpos(0), outputpos(0), servport(-1), lastauth(0), shouldpurge(false), registeredserver(false) {}
 };
 vector<client *> clients;
 
@@ -207,7 +196,7 @@ bool setuppingsocket(ENetAddress *address)
     return true;
 }
 
-void setupserver(int port, const char *ip = NULL)
+void setupserver(int port, const char *ip = nullptr)
 {
     ENetAddress address;
     address.host = ENET_HOST_ANY;
@@ -243,7 +232,7 @@ void setupserver(int port, const char *ip = NULL)
         fatal("failed to create ping socket");
     }
     enet_time_set(0);
-    starttime = time(NULL);
+    starttime = time(nullptr);
     char *ct = ctime(&starttime);
     if(strchr(ct, '\n'))
     {
@@ -372,7 +361,7 @@ client *findclient(gameserver &s)
             return &c;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 void servermessage(gameserver &s, const char *msg)
@@ -612,7 +601,7 @@ void checkclients()
             ENetBuffer buf;
             buf.data = (void *)&data[c.outputpos];
             buf.dataLength = len-c.outputpos;
-            int res = enet_socket_send(c.socket, NULL, &buf, 1);
+            int res = enet_socket_send(c.socket, nullptr, &buf, 1);
             if(res>=0)
             {
                 c.outputpos += res;
@@ -625,7 +614,7 @@ void checkclients()
                     else
                     {
                         c.message->purge();
-                        c.message = NULL;
+                        c.message = nullptr;
                     }
                     c.outputpos = 0;
                     if(!c.message && c.output.empty() && c.shouldpurge)
@@ -646,7 +635,7 @@ void checkclients()
             ENetBuffer buf;
             buf.data = &c.input[c.inputpos];
             buf.dataLength = sizeof(c.input) - c.inputpos;
-            int res = enet_socket_receive(c.socket, NULL, &buf, 1);
+            int res = enet_socket_receive(c.socket, nullptr, &buf, 1);
             if(res>0)
             {
                 c.inputpos += res;
@@ -696,7 +685,7 @@ int main(int argc, char **argv)
         fatal("Unable to initialise network module");
     }
     atexit(enet_deinitialize);
-    const char *dir = "", *ip = NULL;
+    const char *dir = "", *ip = nullptr;
     int port = 42068;
     if(argc>=2)
     {
@@ -719,7 +708,7 @@ int main(int argc, char **argv)
     {
         logfile = stdout;
     }
-    setvbuf(logfile, NULL, _IOLBF, BUFSIZ);
+    setvbuf(logfile, nullptr, _IOLBF, BUFSIZ);
     setupserver(port, ip);
     for(;;)
     {

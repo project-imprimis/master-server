@@ -13,7 +13,7 @@ void ipmask::parse(const char *name)
     maskconv.i = 0;
     for(int i = 0; i < 4; ++i)
     {
-        char *end = NULL;
+        char *end = nullptr;
         int n = strtol(name, &end, 10);
         if(!end) break;
         if(end > name) { ipconv.b[i] = n; maskconv.b[i] = 0xFF; }
@@ -24,7 +24,7 @@ void ipmask::parse(const char *name)
             if(c == '.') break;
             if(c == '/')
             {
-                int range = std::clamp(int(strtol(name, NULL, 10)), 0, 32);
+                int range = std::clamp(int(strtol(name, nullptr, 10)), 0, 32);
                 mask = range ? ENET_HOST_TO_NET_32(0xFFffFFff << (32 - range)) : maskconv.i;
                 ip = ipconv.i & mask;
                 return;

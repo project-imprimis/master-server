@@ -3,11 +3,6 @@
 #ifndef _TOOLS_H
 #define _TOOLS_H
 
-#ifdef NULL
-#undef NULL
-#endif
-#define NULL 0
-
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef unsigned int uint;
@@ -15,25 +10,10 @@ typedef unsigned long ulong;
 typedef signed long long int llong;
 typedef unsigned long long int ullong;
 
-#define DELETEA(p) if(p) { delete[] p; p = 0; }
-
-#ifdef WIN32
-
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define PATHDIV '\\'
-
-#else
-#define __cdecl
 #define _vsnprintf vsnprintf
 #define PATHDIV '/'
-#endif
 
-#ifdef __GNUC__
 #define PRINTFARGS(fmt, args) __attribute__((format(printf, fmt, args)))
-#else
-#define PRINTFARGS(fmt, args)
-#endif
 
 // easy safe strings
 
@@ -51,9 +31,6 @@ inline char *copystring(char *d, const char *s, size_t len)
     return d;
 }
 template<size_t N> inline char *copystring(char (&d)[N], const char *s) { return copystring(d, s, N); }
-
-inline char *concatstring(char *d, const char *s, size_t len) { size_t used = strlen(d); return used < len ? copystring(d+used, s, len-used) : d; }
-template<size_t N> inline char *concatstring(char (&d)[N], const char *s) { return concatstring(d, s, N); }
 
 template<size_t N> inline void formatstring(char (&d)[N], const char *fmt, ...) PRINTFARGS(2, 3);
 template<size_t N> inline void formatstring(char (&d)[N], const char *fmt, ...)
@@ -83,7 +60,7 @@ struct databuf
     int len, maxlen;
     uchar flags;
 
-    databuf() : buf(NULL), len(0), maxlen(0), flags(0) {}
+    databuf() : buf(nullptr), len(0), maxlen(0), flags(0) {}
 
     template<class U>
     databuf(T *buf, U maxlen) : buf(buf), len(0), maxlen((int)maxlen), flags(0) {}
@@ -109,27 +86,12 @@ struct databuf
     int length() const { return len; }
 };
 
-typedef databuf<char> charbuf;
-typedef databuf<uchar> ucharbuf;
-
 template<class T> struct isclass
 {
     template<class C> static char test(void (C::*)(void));
     template<class C> static int test(...);
     enum { yes = sizeof(test<T>(0)) == 1 ? 1 : 0, no = yes^1 };
 };
-
-static inline uint hthash(const char *key)
-{
-    uint h = 5381;
-    for(int i = 0, k; (k = key[i]); i++) h = ((h<<5)+h)^k;    // bernstein k=33 xor
-    return h;
-}
-
-static inline uint hthash(int key)
-{
-    return key;
-}
 
 template <class T> struct vector
 {
@@ -138,11 +100,11 @@ template <class T> struct vector
     T *buf;
     int alen, ulen;
 
-    vector() : buf(NULL), alen(0), ulen(0)
+    vector() : buf(nullptr), alen(0), ulen(0)
     {
     }
 
-    vector(const vector &v) : buf(NULL), alen(0), ulen(0)
+    vector(const vector &v) : buf(nullptr), alen(0), ulen(0)
     {
         *this = v;
     }
@@ -178,22 +140,6 @@ template <class T> struct vector
 
     T *getbuf() { return buf; }
     const T *getbuf() const { return buf; }
-    bool inbuf(const T *e) const { return e >= buf && e < &buf[ulen]; }
-
-    void growbuf(int sz)
-    {
-        int olen = alen;
-        if(alen <= 0) alen = std::max(MINSIZE, sz);
-        else while(alen < sz) alen += alen/2;
-        if(alen <= olen) return;
-        uchar *newbuf = new uchar[alen*sizeof(T)];
-        if(olen > 0)
-        {
-            if(ulen > 0) memcpy(newbuf, (void *)buf, ulen*sizeof(T));
-            delete[] (uchar *)buf;
-        }
-        buf = (T *)newbuf;
-    }
 
     databuf<T> reserve(int sz)
     {
@@ -260,19 +206,27 @@ template <class T> struct vector
             }
         }
     }
+
+    private:
+        void growbuf(int sz)
+        {
+            int olen = alen;
+            if(alen <= 0) alen = std::max(MINSIZE, sz);
+            else while(alen < sz) alen += alen/2;
+            if(alen <= olen) return;
+            uchar *newbuf = new uchar[alen*sizeof(T)];
+            if(olen > 0)
+            {
+                if(ulen > 0) memcpy(newbuf, (void *)buf, ulen*sizeof(T));
+                delete[] (uchar *)buf;
+            }
+            buf = (T *)newbuf;
+        }
 };
 
 struct stream
 {
-#ifdef WIN32
-#if defined(__GNUC__) && !defined(__MINGW32__)
-    typedef off64_t offset;
-#else
-    typedef __int64 offset;
-#endif
-#else
     typedef off_t offset;
-#endif
 
     virtual ~stream() {}
     virtual void close() = 0;
@@ -355,7 +309,7 @@ static inline char *path(char *s)
         {
             //(empty body)
         }
-        for(char *prevdir = NULL, *curdir = curpart;;) //note pointer walk
+        for(char *prevdir = nullptr, *curdir = curpart;;) //note pointer walk
         {
             prevdir = curdir[0]==PATHDIV ? curdir+1 : curdir;
             curdir = strchr(prevdir, PATHDIV);
