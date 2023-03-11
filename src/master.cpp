@@ -1,22 +1,20 @@
 #include <sys/types.h>
-#undef __FD_SETSIZE
-#define __FD_SETSIZE 4096
 
 #include "cube.h"
 #include <signal.h>
 #include <enet/etime.h>
 
-#define INPUT_LIMIT 4096
-#define OUTPUT_LIMIT (64*1024)
-#define CLIENT_TIME (3*60*1000)
-#define CLIENT_LIMIT 4096
-#define DUP_LIMIT 16
-#define PING_TIME 3000
-#define PING_RETRY 5
-#define KEEPALIVE_TIME (65*60*1000)
-#define SERVER_LIMIT 4096
-#define SERVER_DUP_LIMIT 10
-#define MAXTRANS 5000                  // max amount of data to swallow in 1 go
+constexpr unsigned int INPUT_LIMIT = 4096;
+constexpr unsigned int OUTPUT_LIMIT = (64*1024);
+constexpr unsigned int CLIENT_TIME = (3*60*1000);
+constexpr unsigned int CLIENT_LIMIT = 4096;
+constexpr unsigned int DUP_LIMIT = 16;
+constexpr unsigned int PING_TIME = 3000;
+constexpr unsigned int PING_RETRY = 5;
+constexpr unsigned int KEEPALIVE_TIME = (65*60*1000);
+constexpr unsigned int SERVER_LIMIT = 4096;
+constexpr unsigned int SERVER_DUP_LIMIT = 10;
+constexpr unsigned int MAXTRANS = 5000;                  // max amount of data to swallow in 1 go
 
 FILE *logfile = nullptr;
 
@@ -111,7 +109,6 @@ std::vector<client *> clients;
 
 ENetSocket serversocket = ENET_SOCKET_NULL;
 
-time_t starttime;
 enet_uint32 servtime = 0;
 
 void fatal(const char *fmt, ...)
@@ -185,6 +182,7 @@ bool setuppingsocket(ENetAddress *address)
 
 void setupserver(int port, const char *ip = nullptr)
 {
+    time_t starttime;
     ENetAddress address;
     address.host = ENET_HOST_ANY;
     address.port = port;
@@ -521,8 +519,6 @@ bool checkclientinput(client &c)
     return c.inputpos < static_cast<int>(sizeof(c.input));
 }
 
-ENetSocketSet readset, writeset;
-
 void checkclients()
 {
     ENetSocketSet readset, writeset;
@@ -673,10 +669,9 @@ void banclients()
     }
 }
 
-int reloadcfg = 1;
-
 int main(int argc, char **argv)
 {
+    int reloadcfg = 1;
     if(enet_initialize()<0)
     {
         fatal("Unable to initialise network module");
